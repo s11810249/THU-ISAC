@@ -34,6 +34,10 @@
     </script>
 
     <style>
+        :root {
+            --page-width: 100vw; /* CSS 變數控制寬度，效能關鍵 */
+        }
+
         body {
             -webkit-user-select: none; user-select: none;
             -webkit-tap-highlight-color: transparent;
@@ -58,6 +62,10 @@
             position: relative;
             background: white;
             transform-origin: top center;
+            /* 使用 CSS 變數控制寬度，避免 JS 迴圈操作 DOM */
+            width: var(--page-width); 
+            /* 確保最小高度，避免 Canvas 切換時閃爍 */
+            min-height: 200px;
         }
 
         .skeleton {
@@ -200,6 +208,11 @@
         let toastTimeout = null;
         let initialPinchDistance = null;
         let initialPinchZoom = null;
+        let basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
+
+        // 安全限制：避免 Canvas 過大導致瀏覽器崩潰 (白屏)
+        const MAX_CANVAS_WIDTH = 4096;
+        const MAX_CANVAS_HEIGHT = 4096;
 
         // 初始化
         window.addEventListener('load', async () => {
@@ -207,6 +220,9 @@
             const savedName = await localforage.getItem('cached_pdf_name');
             const savedScroll = await localforage.getItem('cached_scroll_pos');
             const savedZoom = await localforage.getItem('cached_zoom_level');
+
+            // 重新計算基礎寬度
+            basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
 
             if (savedZoom) {
                 currentZoom = parseFloat(savedZoom);
@@ -227,6 +243,12 @@
 
             setupTouchGestures();
             document.getElementById('scrollContainer').addEventListener('scroll', handleScroll);
+            
+            // 監聽視窗改變，重新計算基礎寬度
+            window.addEventListener('resize', () => {
+                basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
+                applyZoomToStyles();
+            });
         });
 
         function toggleUI() {
@@ -279,21 +301,26 @@
                 container.innerHTML = '';
                 pageStates = {}; 
                 
+                // 批量建立 DOM，減少回流
+                const fragment = document.createDocumentFragment();
                 for (let i = 1; i <= totalPages; i++) {
                     const wrapper = document.createElement('div');
                     wrapper.id = `page-wrapper-${i}`;
-                    wrapper.className = 'page-wrapper shadow-page rounded-sm overflow-hidden w-full'; 
+                    wrapper.className = 'page-wrapper shadow-page rounded-sm overflow-hidden'; 
                     wrapper.dataset.pageNum = i;
+                    // 預設高度，避免塌陷
+                    wrapper.style.minHeight = "400px"; 
                     
                     wrapper.innerHTML = `
                         <div class="skeleton">
                             <span class="text-xs text-gray-600 font-mono tracking-widest">${i}</span>
                         </div>
                     `;
-                    container.appendChild(wrapper);
+                    fragment.appendChild(wrapper);
                 }
+                container.appendChild(fragment);
 
-                applyZoomToStyles(false); 
+                applyZoomToStyles(); 
                 setupIntersectionObserver();
                 loadOutline();
 
@@ -312,24 +339,25 @@
         function handleScroll() {
             const scrollContainer = document.getElementById('scrollContainer');
             clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
+            // 改用 requestAnimationFrame 進行更平滑的處理
+            window.requestAnimationFrame(() => {
                 localforage.setItem('cached_scroll_pos', scrollContainer.scrollTop);
-            }, 500);
-
-            const centerX = window.innerWidth / 2;
-            const centerY = window.innerHeight / 2;
-            const el = document.elementFromPoint(centerX, centerY);
-            
-            if (el) {
-                const wrapper = el.closest('.page-wrapper');
-                if (wrapper) {
-                    const num = parseInt(wrapper.dataset.pageNum);
-                    if (num !== currentPage) {
-                        currentPage = num;
-                        document.getElementById('pageInfo').innerText = `${num} / ${totalPages}`;
+                
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const el = document.elementFromPoint(centerX, centerY);
+                
+                if (el) {
+                    const wrapper = el.closest('.page-wrapper');
+                    if (wrapper) {
+                        const num = parseInt(wrapper.dataset.pageNum);
+                        if (num !== currentPage) {
+                            currentPage = num;
+                            document.getElementById('pageInfo').innerText = `${num} / ${totalPages}`;
+                        }
                     }
                 }
-            }
+            });
         }
 
         // --- 縮放與調整功能 ---
@@ -348,20 +376,20 @@
             setZoom(currentZoom + delta);
         }
 
-        // 自動適應頁面 (Fit Page)
         async function fitToPage() {
             if(!pdfDoc) return;
-            const page = await pdfDoc.getPage(currentPage);
-            const viewport = page.getViewport({scale: 1});
-            const aspectRatio = viewport.width / viewport.height;
-            const availableHeight = window.innerHeight - 100;
-            const targetWidth = availableHeight * aspectRatio;
-            
-            const baseWidth = window.innerWidth - 32; // 使用與 applyZoomToStyles 一致的基準
-            
-            const newZoom = targetWidth / baseWidth;
-            setZoom(newZoom);
-            showStatusToast("自動適應頁面");
+            try {
+                const page = await pdfDoc.getPage(currentPage);
+                const viewport = page.getViewport({scale: 1});
+                const aspectRatio = viewport.width / viewport.height;
+                const availableHeight = window.innerHeight - 100;
+                const targetWidth = availableHeight * aspectRatio;
+                
+                // 使用與 applyZoomToStyles 一致的基準
+                const newZoom = targetWidth / basePageWidth;
+                setZoom(newZoom);
+                showStatusToast("自動適應頁面");
+            } catch(e) { console.error(e); }
         }
 
         function setZoom(newZoomValue, finalize = true) {
@@ -383,16 +411,9 @@
         }
 
         function applyZoomToStyles() {
-            // 平板優化：不限制最大寬度為 768，而是讓它適應螢幕
-            // 在 iPad (1024px+) 上，我們希望基礎寬度就是螢幕寬度，而不是被限制住
-            const baseWidth = window.innerWidth - 32; // 留一點邊距
-            
-            const targetWidth = baseWidth * currentZoom;
-            
-            const wrappers = document.querySelectorAll('.page-wrapper');
-            wrappers.forEach(el => {
-                el.style.width = `${targetWidth}px`;
-            });
+            // 使用 CSS 變數一次性更新所有頁面寬度，極大提升效能
+            const targetWidth = basePageWidth * currentZoom;
+            document.documentElement.style.setProperty('--page-width', `${targetWidth}px`);
         }
 
         function setupTouchGestures() {
@@ -408,9 +429,12 @@
             container.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2 && initialPinchDistance) {
                     e.preventDefault(); 
-                    const currentDistance = getTouchDistance(e.touches);
-                    const ratio = currentDistance / initialPinchDistance;
-                    setZoom(initialPinchZoom * ratio, false);
+                    // 使用 requestAnimationFrame 節流觸控事件
+                    window.requestAnimationFrame(() => {
+                        const currentDistance = getTouchDistance(e.touches);
+                        const ratio = currentDistance / initialPinchDistance;
+                        setZoom(initialPinchZoom * ratio, false);
+                    });
                 }
             }, { passive: false });
 
@@ -431,11 +455,14 @@
         }
 
         function finalizeZoomRender() {
+            // 清除狀態並強迫重新檢查可見區域
             pageStates = {}; 
             if (observer) {
+                // 手動觸發一次檢查，因為 observer 可能不會在靜止時觸發
                 document.querySelectorAll('.page-wrapper').forEach(wrapper => {
                     const rect = wrapper.getBoundingClientRect();
-                    if (rect.top < window.innerHeight && rect.bottom > 0) {
+                    // 放寬檢查範圍
+                    if (rect.top < window.innerHeight + 500 && rect.bottom > -500) {
                         renderPage(parseInt(wrapper.dataset.pageNum), true);
                     }
                 });
@@ -445,7 +472,7 @@
         function setupIntersectionObserver() {
             const options = {
                 root: document.getElementById('scrollContainer'),
-                rootMargin: '500px 0px',
+                rootMargin: '600px 0px', // 預先渲染上下 600px，提升捲動流暢度
                 threshold: 0.01
             };
 
@@ -462,19 +489,35 @@
         }
 
         async function renderPage(num, force = false) {
+            // 如果此頁面正在渲染中，先取消之前的任務（如果支援的話），這裡簡單做狀態檢查
+            if (pageStates[num] && pageStates[num].rendering) return; 
             if (!force && pageStates[num] && pageStates[num].rendered) return;
-            pageStates[num] = { rendered: true };
+
+            pageStates[num] = { rendering: true, rendered: false };
 
             try {
                 const page = await pdfDoc.getPage(num);
                 const wrapper = document.getElementById(`page-wrapper-${num}`);
                 
+                // 取得目前 wrapper 的實際寬度 (由 CSS 變數決定)
                 const containerWidth = wrapper.getBoundingClientRect().width;
                 const viewportRaw = page.getViewport({ scale: 1 });
                 const scale = containerWidth / viewportRaw.width;
                 
-                // 畫質優化：取得螢幕解析度倍率 (iPad 通常是 2)
-                const outputScale = window.devicePixelRatio || 1;
+                // 畫質優化：計算最佳 pixelRatio，但設定上限防止崩潰
+                let outputScale = window.devicePixelRatio || 1;
+                
+                // 計算預計的 Canvas 寬度
+                let canvasWidth = viewportRaw.width * scale * outputScale;
+                let canvasHeight = viewportRaw.height * scale * outputScale;
+
+                // 如果寬度超過安全限制，降低 outputScale
+                if (canvasWidth > MAX_CANVAS_WIDTH || canvasHeight > MAX_CANVAS_HEIGHT) {
+                    const ratio = Math.min(MAX_CANVAS_WIDTH / canvasWidth, MAX_CANVAS_HEIGHT / canvasHeight);
+                    outputScale *= ratio;
+                    // console.warn(`Canvas too large, scaling down by ${ratio.toFixed(2)}`);
+                }
+
                 // 建立真正的高解析度 Viewport
                 const viewport = page.getViewport({ scale: scale * outputScale });
 
@@ -487,27 +530,41 @@
                 newCanvas.style.height = 'auto';
                 newCanvas.style.display = 'block'; 
 
-                // 修正：移除 transform 參數，因為 viewport 已經乘上 outputScale 了
-                // 如果再加 transform，畫面會變 2 倍大 (切掉)
                 const renderContext = { 
                     canvasContext: ctx, 
                     viewport: viewport
                 };
 
-                await page.render(renderContext).promise;
+                // 儲存 render task 以便未來可以擴充取消功能
+                const renderTask = page.render(renderContext);
+                pageStates[num].task = renderTask;
+                
+                await renderTask.promise;
 
-                const oldCanvas = wrapper.querySelector('canvas');
-                if (oldCanvas) {
-                    oldCanvas.remove();
+                // 渲染完成，進行替換
+                // 確保 wrapper 沒有被移除 (可能發生在快速換書時)
+                if (document.getElementById(`page-wrapper-${num}`)) {
+                    const oldCanvas = wrapper.querySelector('canvas');
+                    // 先插入新 canvas，再移除舊的，防止閃白
+                    wrapper.appendChild(newCanvas);
+                    if (oldCanvas) {
+                        oldCanvas.remove();
+                    }
+                    const skeleton = wrapper.querySelector('.skeleton');
+                    if (skeleton) skeleton.remove();
+                    
+                    // 更新 wrapper 最小高度，讓之後的 resize 更穩定
+                    wrapper.style.minHeight = (viewport.height / outputScale) + "px";
                 }
-                wrapper.appendChild(newCanvas);
 
-                const skeleton = wrapper.querySelector('.skeleton');
-                if (skeleton) skeleton.remove();
+                pageStates[num] = { rendering: false, rendered: true };
 
             } catch (err) {
-                console.error(`Render error page ${num}:`, err);
-                pageStates[num] = { rendered: false };
+                // 如果是取消錯誤則忽略
+                if (err.name !== 'RenderingCancelledException') {
+                    console.error(`Render error page ${num}:`, err);
+                }
+                pageStates[num] = { rendering: false, rendered: false };
             }
         }
 
