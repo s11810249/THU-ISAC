@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PDF閱讀器">
+    
+    <title>沉浸式 PDF 閱讀器</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // 更深邃的背景色，減少視覺干擾
+                        reader: { bg: '#0f0f10', panel: '#1c1c1e', text: '#f2f2f7', accent: '#0a84ff' }
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                        'page': '0 4px 20px rgba(0, 0, 0, 0.5)', // 更柔和的頁面陰影
+                    },
+                    spacing: { 'safe-top': 'env(safe-area-inset-top)', 'safe-bottom': 'env(safe-area-inset-bottom)' }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            -webkit-user-select: none; user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #0f0f10;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overscroll-behavior: none;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 毛玻璃效果 */
+        .glass-panel {
+            background: rgba(28, 28, 30, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+        
+        .page-wrapper {
+            margin: 0 auto 16px auto; /* 增加頁面間距 */
+            position: relative;
+            background: white;
+            transition: width 0.2s ease-out;
+        }
+
+        .skeleton {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1c1c1e; display: flex; align-items: center; justify-content: center;
+            color: #48484a; font-size: 1.5rem;
+        }
+
+        /* 按鈕互動微動畫 */
+        .btn-icon {
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 9999px;
+            transition: all 0.2s;
+            color: #e5e5e7;
+        }
+        .btn-icon:active { background-color: rgba(255,255,255,0.15); transform: scale(0.92); }
+    </style>
+</head>
+<body class="bg-reader-bg text-reader-text h-screen w-screen flex flex-col overflow-hidden">
+
+    <!-- 側邊導航欄 -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-[60] hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm"></div>
+    <div id="sidebar" class="fixed top-0 left-0 h-full w-72 bg-[#1c1c1e] z-[70] transform -translate-x-full sidebar-transition shadow-2xl flex flex-col pt-safe-top pb-safe-bottom border-r border-white/10">
+        <div class="p-5 border-b border-white/10 flex justify-between items-center">
+            <span class="font-bold text-lg text-white/90">目錄</span>
+            <button onclick="toggleSidebar()" class="btn-icon w-8 h-8 bg-white/5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div id="outlineContainer" class="flex-1 overflow-y-auto p-3 space-y-1 text-sm text-gray-300 no-scrollbar">
+            <div class="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
+                <svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                <span>無目錄資訊</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頂部標題列 (極簡化) -->
+    <div id="topBar" class="fixed top-0 left-0 w-full glass-panel z-50 pt-safe-top transition-transform duration-300 shadow-sm">
+        <div class="flex justify-between items-center px-4 h-14 relative">
+            
+            <!-- 左側：目錄按鈕 -->
+            <button onclick="toggleSidebar()" class="btn-icon w-10 h-10 -ml-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+
+            <!-- 中間：標題 -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 max-w-[60%] text-center">
+                <h1 class="font-semibold text-sm truncate text-white/90 tracking-wide" id="bookTitle">PDF Reader</h1>
+            </div>
+
+            <!-- 右側：開啟檔案 -->
+            <button onclick="openFilePicker()" class="btn-icon w-10 h-10 -mr-2 text-reader-accent">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 主要閱讀區 -->
+    <div id="scrollContainer" class="flex-1 overflow-auto relative w-full h-full pt-safe-top pb-safe-bottom no-scrollbar scroll-smooth">
+        <div class="h-16 w-full"></div> <!-- Top spacer -->
+        
+        <div id="pagesContainer" class="flex flex-col items-center min-h-full px-4 transition-all duration-200 ease-out origin-top">
+            <!-- 空白狀態 (更優雅的設計) -->
+            <div id="emptyState" class="flex flex-col items-center justify-center h-[60vh] text-gray-500 opacity-60">
+                <div class="w-20 h-20 bg-white/5 rounded-2xl flex items-center justify-center mb-6">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                </div>
+                <p class="text-lg font-medium text-gray-400">尚無書籍</p>
+                <button onclick="openFilePicker()" class="mt-4 px-6 py-2 bg-reader-accent text-white rounded-full text-sm font-semibold shadow-lg shadow-blue-900/20 active:scale-95 transition-transform">
+                    開啟 PDF
+                </button>
+            </div>
+        </div>
+        
+        <div class="h-28 w-full"></div> <!-- Bottom spacer -->
+
+        <!-- 觸控層 -->
+        <div id="uiToggleZone" class="fixed inset-0 z-40 pointer-events-none" style="display: none;"></div>
+    </div>
+
+    <!-- 底部懸浮控制列 (改為圓角膠囊樣式) -->
+    <div id="bottomBar" class="fixed bottom-8 left-0 w-full z-50 transition-transform duration-300 flex justify-center pointer-events-none">
+        <div class="glass-panel rounded-2xl px-5 py-3 flex items-center gap-6 shadow-glass pointer-events-auto mx-4 max-w-md w-full justify-between">
+            
+            <!-- 縮放 -->
+            <div class="flex items-center gap-3">
+                <button onclick="changeZoom(-0.1)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                </button>
+                <span id="zoomDisplay" class="text-xs font-mono font-bold text-gray-400 min-w-[3ch] text-center">100</span>
+                <button onclick="changeZoom(0.1)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </div>
+
+            <!-- 分隔線 -->
+            <div class="w-px h-6 bg-white/10"></div>
+
+            <!-- 頁面導航 -->
+            <div class="flex items-center gap-3">
+                <button onclick="jumpRelative(-1)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <span id="pageInfo" class="text-xs font-mono text-gray-400">0 / 0</span>
+                <button onclick="jumpRelative(1)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 載入動畫 (極簡) -->
+    <div id="loader" class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[80] hidden transition-opacity">
+        <div class="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+    </div>
+
+    <input type="file" id="fileInput" accept="application/pdf" class="hidden">
+
+    <script>
+        let pdfDoc = null;
+        let totalPages = 0;
+        let currentPage = 1;
+        let currentZoom = 1.0;
+        let observer = null;
+        let scrollTimeout = null;
+        let uiVisible = true;
+        let pageStates = {}; 
+
+        // 初始化
+        window.addEventListener('load', async () => {
+            const savedPdf = await localforage.getItem('cached_pdf_data');
+            const savedName = await localforage.getItem('cached_pdf_name');
+            const savedScroll = await localforage.getItem('cached_scroll_pos');
+            const savedZoom = await localforage.getItem('cached_zoom_level');
+
+            if (savedZoom) {
+                currentZoom = parseFloat(savedZoom);
+                updateZoomDisplay();
+            }
+
+            if (savedPdf) {
+                document.getElementById('bookTitle').innerText = savedName || 'My Document';
+                loadPdfDocument(savedPdf, savedScroll);
+            }
+            
+            document.getElementById('scrollContainer').addEventListener('click', (e) => {
+                if(e.target.id === 'scrollContainer' || e.target.closest('.page-wrapper')) {
+                    // 防止點擊側邊欄時觸發
+                    if (!e.target.closest('#sidebar')) {
+                        toggleUI();
+                    }
+                }
+            });
+        });
+
+        function toggleUI() {
+            uiVisible = !uiVisible;
+            const top = document.getElementById('topBar');
+            const bottom = document.getElementById('bottomBar');
+            if (uiVisible) {
+                top.classList.remove('-translate-y-20');
+                bottom.classList.remove('translate-y-32');
+            } else {
+                top.classList.add('-translate-y-20');
+                bottom.classList.add('translate-y-32');
+            }
+        }
+
+        function openFilePicker() { document.getElementById('fileInput').click(); }
+
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('bookTitle').innerText = file.name;
+
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const arrayBuffer = this.result;
+                try {
+                    await localforage.clear();
+                    await localforage.setItem('cached_pdf_data', arrayBuffer);
+                    await localforage.setItem('cached_pdf_name', file.name);
+                    currentZoom = 1.0;
+                    updateZoomDisplay();
+                } catch (err) { console.error("Storage error", err); }
+                loadPdfDocument(arrayBuffer, 0);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        async function loadPdfDocument(data, initialScrollTop) {
+            try {
+                const loadingTask = pdfjsLib.getDocument(data);
+                pdfDoc = await loadingTask.promise;
+                totalPages = pdfDoc.numPages;
+
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('pageInfo').innerText = `1 / ${totalPages}`;
+
+                const container = document.getElementById('pagesContainer');
+                container.innerHTML = '';
+                pageStates = {}; 
+                
+                for (let i = 1; i <= totalPages; i++) {
+                    const wrapper = document.createElement('div');
+                    wrapper.id = `page-wrapper-${i}`;
+                    wrapper.className = 'page-wrapper shadow-page rounded-sm overflow-hidden w-full'; 
+                    wrapper.dataset.pageNum = i;
+                    
+                    wrapper.innerHTML = `
+                        <div class="skeleton">
+                            <span class="text-xs text-gray-600 font-mono tracking-widest">${i}</span>
+                        </div>
+                        <canvas id="canvas-${i}" class="block w-full h-full hidden bg-white"></canvas>
+                    `;
+                    container.appendChild(wrapper);
+                }
+
+                applyZoomToStyles();
+                setupIntersectionObserver();
+                loadOutline();
+
+                if (initialScrollTop) {
+                    setTimeout(() => {
+                        document.getElementById('scrollContainer').scrollTop = initialScrollTop;
+                    }, 100);
+                }
+
+            } catch (err) {
+                alert('載入錯誤: ' + err.message);
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+
+        function updateZoomDisplay() {
+            document.getElementById('zoomDisplay').innerText = `${Math.round(currentZoom * 100)}`;
+        }
+
+        async function changeZoom(delta) {
+            const newZoom = Math.max(0.5, Math.min(3.0, currentZoom + delta));
+            if (newZoom === currentZoom) return;
+
+            currentZoom = newZoom;
+            updateZoomDisplay();
+            localforage.setItem('cached_zoom_level', currentZoom);
+            
+            applyZoomToStyles();
+
+            // 防抖重繪
+            if(window.redrawTimeout) clearTimeout(window.redrawTimeout);
+            window.redrawTimeout = setTimeout(() => {
+                pageStates = {};
+                document.querySelectorAll('canvas').forEach(canvas => {
+                    canvas.classList.add('hidden');
+                    const wrapper = canvas.parentElement;
+                    if (!wrapper.querySelector('.skeleton')) {
+                        const skel = document.createElement('div');
+                        skel.className = 'skeleton';
+                        skel.innerHTML = `<span class="text-xs text-gray-600">${wrapper.dataset.pageNum}</span>`;
+                        wrapper.prepend(skel);
+                    }
+                });
+                if (observer) observer.disconnect();
+                setupIntersectionObserver();
+            }, 300); // 300ms 後再重繪，讓縮放動畫先跑
+        }
+
+        function applyZoomToStyles() {
+            const isDesktop = window.innerWidth > 768;
+            const baseWidth = isDesktop ? 768 : (window.innerWidth - 32); // Mobile: 減去 padding
+            const targetWidth = baseWidth * currentZoom;
+            
+            const wrappers = document.querySelectorAll('.page-wrapper');
+            wrappers.forEach(el => {
+                el.style.width = `${targetWidth}px`;
+            });
+        }
+
+        function setupIntersectionObserver() {
+            const options = {
+                root: document.getElementById('scrollContainer'),
+                rootMargin: '400px 0px', // 增加預載範圍
+                threshold: 0.05
+            };
+
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const pageNum = parseInt(entry.target.dataset.pageNum);
+                        renderPage(pageNum);
+                        if (entry.intersectionRatio > 0.3) {
+                            updatePageInfo(pageNum);
+                        }
+                    }
+                });
+            }, options);
+
+            document.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
+            
+            const scrollContainer = document.getElementById('scrollContainer');
+            scrollContainer.addEventListener('scroll', () => {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    localforage.setItem('cached_scroll_pos', scrollContainer.scrollTop);
+                }, 500);
+            });
+        }
+
+        async function renderPage(num) {
+            if (pageStates[num] && pageStates[num].rendered) return;
+            pageStates[num] = { rendered: true };
+
+            try {
+                const page = await pdfDoc.getPage(num);
+                const wrapper = document.getElementById(`page-wrapper-${num}`);
+                
+                const containerWidth = wrapper.getBoundingClientRect().width;
+                const viewportRaw = page.getViewport({ scale: 1 });
+                const scale = containerWidth / viewportRaw.width;
+                
+                // 提高渲染清晰度
+                const outputScale = window.devicePixelRatio || 1;
+                const viewport = page.getViewport({ scale: scale * outputScale });
+
+                const canvas = document.getElementById(`canvas-${num}`);
+                const ctx = canvas.getContext('2d');
+
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                canvas.style.width = '100%';
+                canvas.style.height = 'auto';
+
+                const skeleton = wrapper.querySelector('.skeleton');
+                if (skeleton) skeleton.remove();
+                canvas.classList.remove('hidden');
+
+                const renderContext = { 
+                    canvasContext: ctx, 
+                    viewport: viewport,
+                    transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+                };
+                await page.render(renderContext).promise;
+
+            } catch (err) {
+                console.error(`Render error page ${num}:`, err);
+                pageStates[num] = { rendered: false };
+            }
+        }
+
+        function updatePageInfo(num) {
+            currentPage = num;
+            document.getElementById('pageInfo').innerText = `${num} / ${totalPages}`;
+        }
+
+        function jumpRelative(delta) {
+            const target = currentPage + delta;
+            jumpToPage(target);
+        }
+
+        function jumpToPage(num) {
+            if (num < 1 || num > totalPages) return;
+            const el = document.getElementById(`page-wrapper-${num}`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                updatePageInfo(num);
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        async function loadOutline() {
+            const container = document.getElementById('outlineContainer');
+            container.innerHTML = '';
+            try {
+                const outline = await pdfDoc.getOutline();
+                if (!outline || outline.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-40 text-gray-600 gap-2">
+                            <svg class="w-8 h-8 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+                            <span>無目錄</span>
+                        </div>`;
+                    return;
+                }
+                async function buildOutlineTree(items, level = 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = level > 0 ? 'ml-3 border-l border-white/10 pl-3 my-1' : 'space-y-1';
+                    for (const item of items) {
+                        const li = document.createElement('li');
+                        const btn = document.createElement('button');
+                        btn.className = 'text-left w-full hover:bg-white/5 px-3 py-2 rounded-md truncate transition duration-150 block text-gray-400 hover:text-white text-sm';
+                        btn.innerText = item.title;
+                        btn.onclick = async () => {
+                            if (item.dest) {
+                                let dest = item.dest;
+                                if (typeof dest === 'string') dest = await pdfDoc.getDestination(dest);
+                                if (dest) {
+                                    const ref = dest[0];
+                                    const pageIndex = await pdfDoc.getPageIndex(ref);
+                                    jumpToPage(pageIndex + 1);
+                                    toggleSidebar();
+                                }
+                            }
+                        };
+                        li.appendChild(btn);
+                        ul.appendChild(li);
+                        if (item.items && item.items.length > 0) {
+                            const children = await buildOutlineTree(item.items, level + 1);
+                            li.appendChild(children);
+                        }
+                    }
+                    return ul;
+                }
+                container.appendChild(await buildOutlineTree(outline));
+            } catch (err) { console.error("Outline error:", err); }
+        }
+    </script>
+</body>
+</html>
