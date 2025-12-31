@@ -67,7 +67,7 @@
             z-index: 0;
         }
         
-        canvas { position: relative; z-index: 10; }
+        canvas { position: relative; z-index: 10; display: block; }
 
         .btn-icon {
             display: flex; align-items: center; justify-content: center;
@@ -154,7 +154,6 @@
                     <button onclick="manualZoom(-0.1)" class="btn-icon w-7 h-7 hover:bg-white/10">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                     </button>
-                    <!-- 隱藏縮放數值以節省空間，改用視覺回饋 -->
                     <button onclick="manualZoom(0.1)" class="btn-icon w-7 h-7 hover:bg-white/10">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     </button>
@@ -176,7 +175,7 @@
         </div>
     </div>
 
-    <!-- 狀態顯示浮動層 (顯示目前縮放比例) -->
+    <!-- 狀態顯示浮動層 -->
     <div id="statusToast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full text-white text-sm opacity-0 pointer-events-none transition-opacity duration-300 z-[90]">
         100%
     </div>
@@ -199,8 +198,6 @@
         let pageStates = {}; 
         let redrawTimeout = null;
         let toastTimeout = null;
-
-        // 觸控縮放變數
         let initialPinchDistance = null;
         let initialPinchZoom = null;
 
@@ -354,18 +351,13 @@
         // 自動適應頁面 (Fit Page)
         async function fitToPage() {
             if(!pdfDoc) return;
-            // 取得目前頁面的資訊
             const page = await pdfDoc.getPage(currentPage);
             const viewport = page.getViewport({scale: 1});
             const aspectRatio = viewport.width / viewport.height;
-            
-            // 計算可用高度 (視窗高度 - 上下邊距 - 工具列預留)
-            const availableHeight = window.innerHeight - 100; // 預留寬鬆邊距
+            const availableHeight = window.innerHeight - 100;
             const targetWidth = availableHeight * aspectRatio;
             
-            // 取得目前的基礎寬度 (applyZoomToStyles 使用的)
-            const isDesktop = window.innerWidth > 768;
-            const baseWidth = isDesktop ? 768 : (window.innerWidth - 32);
+            const baseWidth = window.innerWidth - 32; // 使用與 applyZoomToStyles 一致的基準
             
             const newZoom = targetWidth / baseWidth;
             setZoom(newZoom);
@@ -373,7 +365,7 @@
         }
 
         function setZoom(newZoomValue, finalize = true) {
-            const clamped = Math.max(0.2, Math.min(5.0, newZoomValue)); // 放寬縮放限制
+            const clamped = Math.max(0.2, Math.min(5.0, newZoomValue));
             if (clamped === currentZoom && finalize) return;
 
             currentZoom = clamped;
@@ -391,8 +383,10 @@
         }
 
         function applyZoomToStyles() {
-            const isDesktop = window.innerWidth > 768;
-            const baseWidth = isDesktop ? 768 : (window.innerWidth - 32);
+            // 平板優化：不限制最大寬度為 768，而是讓它適應螢幕
+            // 在 iPad (1024px+) 上，我們希望基礎寬度就是螢幕寬度，而不是被限制住
+            const baseWidth = window.innerWidth - 32; // 留一點邊距
+            
             const targetWidth = baseWidth * currentZoom;
             
             const wrappers = document.querySelectorAll('.page-wrapper');
@@ -479,7 +473,9 @@
                 const viewportRaw = page.getViewport({ scale: 1 });
                 const scale = containerWidth / viewportRaw.width;
                 
+                // 畫質優化：取得螢幕解析度倍率 (iPad 通常是 2)
                 const outputScale = window.devicePixelRatio || 1;
+                // 建立真正的高解析度 Viewport
                 const viewport = page.getViewport({ scale: scale * outputScale });
 
                 const newCanvas = document.createElement('canvas');
@@ -491,10 +487,11 @@
                 newCanvas.style.height = 'auto';
                 newCanvas.style.display = 'block'; 
 
+                // 修正：移除 transform 參數，因為 viewport 已經乘上 outputScale 了
+                // 如果再加 transform，畫面會變 2 倍大 (切掉)
                 const renderContext = { 
                     canvasContext: ctx, 
-                    viewport: viewport,
-                    transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null
+                    viewport: viewport
                 };
 
                 await page.render(renderContext).promise;
