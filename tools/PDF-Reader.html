@@ -472,20 +472,61 @@
         function setupIntersectionObserver() {
             const options = {
                 root: document.getElementById('scrollContainer'),
-                rootMargin: '600px 0px', // 預先渲染上下 600px，提升捲動流暢度
-                threshold: 0.01
+                // 預載範圍設為 2000px (約 2-3 頁)，確保滑動順暢，
+                // 但超過這個範圍的頁面會被卸載，釋放記憶體。
+                rootMargin: '2000px 0px', 
+                threshold: 0
             };
 
             observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
+                    const pageNum = parseInt(entry.target.dataset.pageNum);
                     if (entry.isIntersecting) {
-                        const pageNum = parseInt(entry.target.dataset.pageNum);
+                        // 進入視野：渲染
                         renderPage(pageNum);
+                    } else {
+                        // 離開視野：卸載 (釋放記憶體)
+                        unloadPage(pageNum);
                     }
                 });
             }, options);
 
             document.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
+        }
+        
+        // 新增：卸載頁面功能 (解決記憶體溢出關鍵)
+        function unloadPage(num) {
+            const state = pageStates[num];
+            if (!state) return;
+
+            // 1. 如果正在渲染，嘗試取消
+            if (state.rendering && state.task) {
+                state.task.cancel();
+            }
+
+            // 2. 如果已經渲染過，移除 Canvas
+            if (state.rendered || state.rendering) {
+                const wrapper = document.getElementById(`page-wrapper-${num}`);
+                if (wrapper) {
+                    // 恢復骨架屏 (如果沒有的話)
+                    if (!wrapper.querySelector('.skeleton')) {
+                        const skel = document.createElement('div');
+                        skel.className = 'skeleton';
+                        skel.innerHTML = `<span class="text-xs text-gray-600 font-mono tracking-widest">${num}</span>`;
+                        wrapper.appendChild(skel);
+                    }
+                    
+                    // 移除 Canvas 以釋放記憶體
+                    const canvas = wrapper.querySelector('canvas');
+                    if (canvas) {
+                        canvas.width = 1; // 強制縮小以釋放 GPU 緩衝
+                        canvas.height = 1;
+                        canvas.remove();
+                    }
+                }
+                // 清除狀態
+                delete pageStates[num];
+            }
         }
 
         async function renderPage(num, force = false) {
@@ -515,7 +556,6 @@
                 if (canvasWidth > MAX_CANVAS_WIDTH || canvasHeight > MAX_CANVAS_HEIGHT) {
                     const ratio = Math.min(MAX_CANVAS_WIDTH / canvasWidth, MAX_CANVAS_HEIGHT / canvasHeight);
                     outputScale *= ratio;
-                    // console.warn(`Canvas too large, scaling down by ${ratio.toFixed(2)}`);
                 }
 
                 // 建立真正的高解析度 Viewport
@@ -537,7 +577,7 @@
 
                 // 儲存 render task 以便未來可以擴充取消功能
                 const renderTask = page.render(renderContext);
-                pageStates[num].task = renderTask;
+                pageStates[num].task = renderTask; // 綁定 task 供 unload 使用
                 
                 await renderTask.promise;
 
@@ -564,7 +604,8 @@
                 if (err.name !== 'RenderingCancelledException') {
                     console.error(`Render error page ${num}:`, err);
                 }
-                pageStates[num] = { rendering: false, rendered: false };
+                // 渲染失敗或取消，重置狀態以便下次重試
+                delete pageStates[num];
             }
         }
 
