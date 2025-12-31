@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PDF閱讀器">
     
-    <title>東海大學實習中心 PDF 閱讀器</title>
+    <title>PDF 閱讀器 (iPad Air 2 Optimized)</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -35,7 +35,7 @@
 
     <style>
         :root {
-            --page-width: 100vw; /* CSS 變數控制寬度，效能關鍵 */
+            --page-width: 100vw;
         }
 
         body {
@@ -62,10 +62,11 @@
             position: relative;
             background: white;
             transform-origin: top center;
-            /* 使用 CSS 變數控制寬度，避免 JS 迴圈操作 DOM */
             width: var(--page-width); 
-            /* 確保最小高度，避免 Canvas 切換時閃爍 */
             min-height: 200px;
+            /* GPU 加速層，防止閃爍 */
+            transform: translateZ(0);
+            will-change: transform; 
         }
 
         .skeleton {
@@ -113,7 +114,7 @@
             </button>
 
             <div class="absolute left-1/2 transform -translate-x-1/2 max-w-[60%] text-center">
-                <h1 class="font-semibold text-sm truncate text-white/90 tracking-wide" id="bookTitle">東海大學實習中心</h1>
+                <h1 class="font-semibold text-sm truncate text-white/90 tracking-wide" id="bookTitle">離線 PDF 閱讀器</h1>
             </div>
 
             <button onclick="openFilePicker()" class="btn-icon w-10 h-10 -mr-2 text-reader-accent">
@@ -145,19 +146,15 @@
     <div id="bottomBar" class="fixed bottom-8 left-0 w-full z-50 transition-transform duration-300 flex justify-center pointer-events-none">
         <div class="glass-panel rounded-2xl px-4 py-2 flex items-center gap-4 shadow-glass pointer-events-auto mx-4 w-full max-w-lg justify-between">
             
-            <!-- 縮放與檢視控制 -->
             <div class="flex items-center gap-1">
-                <!-- 自動適應 (Fit Page) -->
-                <button onclick="fitToPage()" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10" title="自動適應頁面大小">
+                <button onclick="fitToPage()" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10" title="自動適應">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
                 </button>
                 
-                <!-- 1:1 (100%) -->
-                <button onclick="setZoom(1.0)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10 text-[10px] font-bold tracking-tighter" title="恢復 100%">
+                <button onclick="setZoom(1.0)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10 text-[10px] font-bold tracking-tighter" title="100%">
                     100%
                 </button>
 
-                <!-- 手動縮放群組 -->
                 <div class="flex items-center bg-white/5 rounded-full px-1 ml-1">
                     <button onclick="manualZoom(-0.1)" class="btn-icon w-7 h-7 hover:bg-white/10">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
@@ -170,7 +167,6 @@
 
             <div class="w-px h-6 bg-white/10"></div>
 
-            <!-- 頁面導航 -->
             <div class="flex items-center gap-2">
                 <button onclick="jumpRelative(-1)" class="btn-icon w-8 h-8 bg-white/5 hover:bg-white/10">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
@@ -183,19 +179,21 @@
         </div>
     </div>
 
-    <!-- 狀態顯示浮動層 -->
-    <div id="statusToast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full text-white text-sm opacity-0 pointer-events-none transition-opacity duration-300 z-[90]">
-        100%
-    </div>
-
+    <!-- 狀態顯示與載入動畫 -->
+    <div id="statusToast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full text-white text-sm opacity-0 pointer-events-none transition-opacity duration-300 z-[90]">100%</div>
     <input type="file" id="fileInput" accept="application/pdf" class="hidden">
-
-    <!-- 載入動畫 -->
     <div id="loader" class="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[80] hidden transition-opacity">
         <div class="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
     </div>
 
     <script>
+        // 註冊 Service Worker 實現真正的離線使用
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered!', reg))
+                .catch(err => console.log('SW registration failed', err));
+        }
+
         let pdfDoc = null;
         let totalPages = 0;
         let currentPage = 1;
@@ -210,24 +208,18 @@
         let initialPinchZoom = null;
         let basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
 
-        // 安全限制：避免 Canvas 過大導致瀏覽器崩潰 (白屏)
         const MAX_CANVAS_WIDTH = 4096;
         const MAX_CANVAS_HEIGHT = 4096;
 
-        // 初始化
         window.addEventListener('load', async () => {
             const savedPdf = await localforage.getItem('cached_pdf_data');
             const savedName = await localforage.getItem('cached_pdf_name');
             const savedScroll = await localforage.getItem('cached_scroll_pos');
             const savedZoom = await localforage.getItem('cached_zoom_level');
 
-            // 重新計算基礎寬度
             basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
 
-            if (savedZoom) {
-                currentZoom = parseFloat(savedZoom);
-            }
-
+            if (savedZoom) currentZoom = parseFloat(savedZoom);
             if (savedPdf) {
                 document.getElementById('bookTitle').innerText = savedName || '文件';
                 loadPdfDocument(savedPdf, savedScroll);
@@ -235,16 +227,13 @@
             
             document.getElementById('scrollContainer').addEventListener('click', (e) => {
                 if(e.target.id === 'scrollContainer' || e.target.closest('.page-wrapper')) {
-                    if (!e.target.closest('#sidebar')) {
-                        toggleUI();
-                    }
+                    if (!e.target.closest('#sidebar')) toggleUI();
                 }
             });
 
             setupTouchGestures();
             document.getElementById('scrollContainer').addEventListener('scroll', handleScroll);
             
-            // 監聽視窗改變，重新計算基礎寬度
             window.addEventListener('resize', () => {
                 basePageWidth = window.innerWidth > 768 ? 768 : window.innerWidth - 32;
                 applyZoomToStyles();
@@ -301,14 +290,12 @@
                 container.innerHTML = '';
                 pageStates = {}; 
                 
-                // 批量建立 DOM，減少回流
                 const fragment = document.createDocumentFragment();
                 for (let i = 1; i <= totalPages; i++) {
                     const wrapper = document.createElement('div');
                     wrapper.id = `page-wrapper-${i}`;
                     wrapper.className = 'page-wrapper shadow-page rounded-sm overflow-hidden'; 
                     wrapper.dataset.pageNum = i;
-                    // 預設高度，避免塌陷
                     wrapper.style.minHeight = "400px"; 
                     
                     wrapper.innerHTML = `
@@ -339,7 +326,6 @@
         function handleScroll() {
             const scrollContainer = document.getElementById('scrollContainer');
             clearTimeout(scrollTimeout);
-            // 改用 requestAnimationFrame 進行更平滑的處理
             window.requestAnimationFrame(() => {
                 localforage.setItem('cached_scroll_pos', scrollContainer.scrollTop);
                 
@@ -360,8 +346,6 @@
             });
         }
 
-        // --- 縮放與調整功能 ---
-
         function showStatusToast(text) {
             const toast = document.getElementById('statusToast');
             toast.innerText = text;
@@ -372,9 +356,7 @@
             }, 1500);
         }
 
-        function manualZoom(delta) {
-            setZoom(currentZoom + delta);
-        }
+        function manualZoom(delta) { setZoom(currentZoom + delta); }
 
         async function fitToPage() {
             if(!pdfDoc) return;
@@ -384,8 +366,6 @@
                 const aspectRatio = viewport.width / viewport.height;
                 const availableHeight = window.innerHeight - 100;
                 const targetWidth = availableHeight * aspectRatio;
-                
-                // 使用與 applyZoomToStyles 一致的基準
                 const newZoom = targetWidth / basePageWidth;
                 setZoom(newZoom);
                 showStatusToast("自動適應頁面");
@@ -398,7 +378,6 @@
 
             currentZoom = clamped;
             showStatusToast(`${Math.round(currentZoom * 100)}%`);
-            
             applyZoomToStyles();
 
             if (finalize) {
@@ -411,14 +390,12 @@
         }
 
         function applyZoomToStyles() {
-            // 使用 CSS 變數一次性更新所有頁面寬度，極大提升效能
             const targetWidth = basePageWidth * currentZoom;
             document.documentElement.style.setProperty('--page-width', `${targetWidth}px`);
         }
 
         function setupTouchGestures() {
             const container = document.getElementById('scrollContainer');
-
             container.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
                     initialPinchDistance = getTouchDistance(e.touches);
@@ -429,7 +406,6 @@
             container.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2 && initialPinchDistance) {
                     e.preventDefault(); 
-                    // 使用 requestAnimationFrame 節流觸控事件
                     window.requestAnimationFrame(() => {
                         const currentDistance = getTouchDistance(e.touches);
                         const ratio = currentDistance / initialPinchDistance;
@@ -448,20 +424,14 @@
         }
 
         function getTouchDistance(touches) {
-            return Math.hypot(
-                touches[0].pageX - touches[1].pageX,
-                touches[0].pageY - touches[1].pageY
-            );
+            return Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
         }
 
         function finalizeZoomRender() {
-            // 清除狀態並強迫重新檢查可見區域
             pageStates = {}; 
             if (observer) {
-                // 手動觸發一次檢查，因為 observer 可能不會在靜止時觸發
                 document.querySelectorAll('.page-wrapper').forEach(wrapper => {
                     const rect = wrapper.getBoundingClientRect();
-                    // 放寬檢查範圍
                     if (rect.top < window.innerHeight + 500 && rect.bottom > -500) {
                         renderPage(parseInt(wrapper.dataset.pageNum), true);
                     }
@@ -470,22 +440,21 @@
         }
 
         function setupIntersectionObserver() {
+            // iPad Air 2 優化：減少 rootMargin 到 50% 視窗高度
+            // 讓不可見的頁面更快被卸載，避免 2GB RAM 爆掉
             const options = {
                 root: document.getElementById('scrollContainer'),
-                // 預載範圍設為 2000px (約 2-3 頁)，確保滑動順暢，
-                // 但超過這個範圍的頁面會被卸載，釋放記憶體。
-                rootMargin: '2000px 0px', 
+                rootMargin: '50% 0px', 
                 threshold: 0
             };
 
+            if (observer) observer.disconnect();
             observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     const pageNum = parseInt(entry.target.dataset.pageNum);
                     if (entry.isIntersecting) {
-                        // 進入視野：渲染
                         renderPage(pageNum);
                     } else {
-                        // 離開視野：卸載 (釋放記憶體)
                         unloadPage(pageNum);
                     }
                 });
@@ -494,21 +463,15 @@
             document.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
         }
         
-        // 新增：卸載頁面功能 (解決記憶體溢出關鍵)
         function unloadPage(num) {
             const state = pageStates[num];
             if (!state) return;
 
-            // 1. 如果正在渲染，嘗試取消
-            if (state.rendering && state.task) {
-                state.task.cancel();
-            }
+            if (state.rendering && state.task) state.task.cancel();
 
-            // 2. 如果已經渲染過，移除 Canvas
             if (state.rendered || state.rendering) {
                 const wrapper = document.getElementById(`page-wrapper-${num}`);
                 if (wrapper) {
-                    // 恢復骨架屏 (如果沒有的話)
                     if (!wrapper.querySelector('.skeleton')) {
                         const skel = document.createElement('div');
                         skel.className = 'skeleton';
@@ -516,21 +479,19 @@
                         wrapper.appendChild(skel);
                     }
                     
-                    // 移除 Canvas 以釋放記憶體
                     const canvas = wrapper.querySelector('canvas');
                     if (canvas) {
-                        canvas.width = 1; // 強制縮小以釋放 GPU 緩衝
+                        // 強制釋放記憶體
+                        canvas.width = 1; 
                         canvas.height = 1;
                         canvas.remove();
                     }
                 }
-                // 清除狀態
                 delete pageStates[num];
             }
         }
 
         async function renderPage(num, force = false) {
-            // 如果此頁面正在渲染中，先取消之前的任務（如果支援的話），這裡簡單做狀態檢查
             if (pageStates[num] && pageStates[num].rendering) return; 
             if (!force && pageStates[num] && pageStates[num].rendered) return;
 
@@ -539,30 +500,28 @@
             try {
                 const page = await pdfDoc.getPage(num);
                 const wrapper = document.getElementById(`page-wrapper-${num}`);
+                if (!wrapper) return;
                 
-                // 取得目前 wrapper 的實際寬度 (由 CSS 變數決定)
                 const containerWidth = wrapper.getBoundingClientRect().width;
                 const viewportRaw = page.getViewport({ scale: 1 });
                 const scale = containerWidth / viewportRaw.width;
                 
-                // 畫質優化：計算最佳 pixelRatio，但設定上限防止崩潰
-                let outputScale = window.devicePixelRatio || 1;
+                // iPad Air 2 優化：限制最大解析度倍率
+                // 強制上限為 1.5 倍，犧牲一點銳利度換取穩定性
+                // 否則 2GB RAM 載入大量圖片會卡頓或白屏
+                let maxRatio = Math.min(window.devicePixelRatio || 1, 1.5);
                 
-                // 計算預計的 Canvas 寬度
-                let canvasWidth = viewportRaw.width * scale * outputScale;
-                let canvasHeight = viewportRaw.height * scale * outputScale;
+                let canvasWidth = viewportRaw.width * scale * maxRatio;
+                let canvasHeight = viewportRaw.height * scale * maxRatio;
 
-                // 如果寬度超過安全限制，降低 outputScale
                 if (canvasWidth > MAX_CANVAS_WIDTH || canvasHeight > MAX_CANVAS_HEIGHT) {
                     const ratio = Math.min(MAX_CANVAS_WIDTH / canvasWidth, MAX_CANVAS_HEIGHT / canvasHeight);
-                    outputScale *= ratio;
+                    maxRatio *= ratio;
                 }
 
-                // 建立真正的高解析度 Viewport
-                const viewport = page.getViewport({ scale: scale * outputScale });
-
+                const viewport = page.getViewport({ scale: scale * maxRatio });
                 const newCanvas = document.createElement('canvas');
-                const ctx = newCanvas.getContext('2d');
+                const ctx = newCanvas.getContext('2d', { alpha: false }); // 關閉透明度可省一點記憶體
 
                 newCanvas.height = viewport.height;
                 newCanvas.width = viewport.width;
@@ -570,56 +529,39 @@
                 newCanvas.style.height = 'auto';
                 newCanvas.style.display = 'block'; 
 
-                const renderContext = { 
-                    canvasContext: ctx, 
-                    viewport: viewport
-                };
-
-                // 儲存 render task 以便未來可以擴充取消功能
+                const renderContext = { canvasContext: ctx, viewport: viewport };
                 const renderTask = page.render(renderContext);
-                pageStates[num].task = renderTask; // 綁定 task 供 unload 使用
+                pageStates[num].task = renderTask;
                 
                 await renderTask.promise;
 
-                // 渲染完成，進行替換
-                // 確保 wrapper 沒有被移除 (可能發生在快速換書時)
                 if (document.getElementById(`page-wrapper-${num}`)) {
                     const oldCanvas = wrapper.querySelector('canvas');
-                    // 先插入新 canvas，再移除舊的，防止閃白
                     wrapper.appendChild(newCanvas);
-                    if (oldCanvas) {
-                        oldCanvas.remove();
-                    }
+                    if (oldCanvas) oldCanvas.remove();
+                    
                     const skeleton = wrapper.querySelector('.skeleton');
                     if (skeleton) skeleton.remove();
                     
-                    // 更新 wrapper 最小高度，讓之後的 resize 更穩定
-                    wrapper.style.minHeight = (viewport.height / outputScale) + "px";
+                    wrapper.style.minHeight = (viewport.height / maxRatio) + "px";
                 }
 
                 pageStates[num] = { rendering: false, rendered: true };
 
             } catch (err) {
-                // 如果是取消錯誤則忽略
                 if (err.name !== 'RenderingCancelledException') {
                     console.error(`Render error page ${num}:`, err);
                 }
-                // 渲染失敗或取消，重置狀態以便下次重試
                 delete pageStates[num];
             }
         }
 
-        function jumpRelative(delta) {
-            const target = currentPage + delta;
-            jumpToPage(target);
-        }
+        function jumpRelative(delta) { jumpToPage(currentPage + delta); }
 
         function jumpToPage(num) {
             if (num < 1 || num > totalPages) return;
             const el = document.getElementById(`page-wrapper-${num}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function toggleSidebar() {
@@ -642,11 +584,7 @@
             try {
                 const outline = await pdfDoc.getOutline();
                 if (!outline || outline.length === 0) {
-                    container.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-40 text-gray-600 gap-2">
-                            <svg class="w-8 h-8 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
-                            <span>無目錄</span>
-                        </div>`;
+                    container.innerHTML = `<div class="flex flex-col items-center justify-center h-40 text-gray-600 gap-2"><span class="text-sm">無目錄</span></div>`;
                     return;
                 }
                 async function buildOutlineTree(items, level = 0) {
