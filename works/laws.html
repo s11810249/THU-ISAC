@@ -696,11 +696,15 @@
                 const rows = [];
                 data.forEach(col => col.departments.forEach(dept => {
                     const push = (t, r) => rows.push({'學院ID':col.id, '學院名稱':col.name, '學系ID':dept.id, '學系名稱':dept.name, '法規類型':t, '法規ID':r.id, '法規名稱':r.name, '最新版本日期': r.latestDate, '校級會議日期':r.meetingDate, '系所雲端日期':r.cloudDate, '法規系統日期':r.systemDate, '備註':r.note});
-                    dept.committeeRules.forEach(r => push('委員會設置要點', r));
-                    dept.internshipRules.forEach(r => push('實習辦法', r));
+                    (dept.committeeRules || []).forEach(r => push('委員會設置要點', r));
+                    (dept.internshipRules || []).forEach(r => push('實習辦法', r));
                 }));
-                if(!rows.length) return alert("無資料");
-                XLSX.writeFile(XLSX.utils.book_new(XLSX.utils.json_to_sheet(rows)), `RegTracker_${new Date().toISOString().split('T')[0]}.xlsx`);
+                if(!rows.length) return alert("目前沒有資料可匯出");
+                
+                const worksheet = XLSX.utils.json_to_sheet(rows);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "法規版本");
+                XLSX.writeFile(workbook, `RegTracker_${new Date().toISOString().split('T')[0]}.xlsx`);
             };
             
             const handleFileImport = (e) => {
