@@ -97,15 +97,19 @@
         const ChevronLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>;
         const ChevronRightIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>;
         const ClipboardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" /></svg>;
+        const StarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" /></svg>;
 
         // --- Helper Functions ---
         const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
         
-        // Strict Status Check Logic
-        const checkStatus = (sourceDate, targetDate) => {
-            if (!sourceDate) return 'warning_source_missing'; // Meeting date not set
-            if (!targetDate) return 'warning'; // Target date not set
-            return sourceDate === targetDate ? 'ok' : 'warning'; // Must be exact match
+        // Strict Status Check Logic: Reference vs Target
+        // If reference is empty -> 'warning_source_missing'
+        // If target is empty -> 'warning_missing'
+        // If different -> 'warning_mismatch'
+        const checkStatus = (refDate, targetDate) => {
+            if (!refDate) return 'warning_source_missing'; 
+            if (!targetDate) return 'warning_missing'; 
+            return refDate === targetDate ? 'ok' : 'warning_mismatch';
         };
 
         const toROCDateStr = (dateStr) => {
@@ -282,7 +286,7 @@
             );
         };
 
-        const DateInput = ({ label, dateValue, onChange, status }) => {
+        const DateInput = ({ label, dateValue, onChange, status, isBenchmark }) => {
             const [inputValue, setInputValue] = useState(toROCDateStr(dateValue));
             const [isPickerOpen, setIsPickerOpen] = useState(false);
 
@@ -320,23 +324,34 @@
             let statusClass = "bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100";
             let badge = null;
 
-            if (status === 'warning_source_missing') {
-                statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
-                badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未上傳</span>;
-            } else if (status === 'warning') {
-                statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
-                badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未同步</span>;
-            } else if (status === 'ok') {
-                statusClass = "bg-emerald-50 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
-                badge = <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> 同步</span>;
-            } else if (status === 'empty') {
-                 badge = <span className="text-gray-400 text-xs">待確認</span>;
+            if (isBenchmark) {
+                // Special style for Benchmark Date
+                statusClass = "bg-amber-50 border-amber-200 focus-within:border-amber-400 focus-within:ring-amber-100";
+                if (!dateValue) {
+                    badge = <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 基準未定</span>;
+                } else {
+                    badge = <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><StarIcon className="w-3 h-3"/> 比較基準</span>;
+                }
+            } else {
+                if (status === 'warning_source_missing') { // No benchmark set
+                    statusClass = "bg-gray-50 border-gray-200";
+                    badge = <span className="text-gray-400 text-xs">--</span>;
+                } else if (status === 'warning_missing') {
+                    statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
+                    badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未上傳</span>;
+                } else if (status === 'warning_mismatch') {
+                    statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
+                    badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未同步</span>;
+                } else if (status === 'ok') {
+                    statusClass = "bg-emerald-50 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
+                    badge = <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> 同步</span>;
+                }
             }
 
             return (
                 <div className={`p-3 rounded-xl border transition-all ${statusClass} flex flex-col gap-1 relative`}>
                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">{label}</span>
+                        <span className={`text-[11px] font-bold uppercase tracking-wide ${isBenchmark ? 'text-amber-700' : 'text-gray-500'}`}>{label}</span>
                         {badge}
                     </div>
                     
@@ -376,12 +391,16 @@
 
         const RegulationRow = ({ reg, onUpdate, onDelete }) => {
             const [isTemplateOpen, setIsTemplateOpen] = useState(false);
-            const cloudStatus = !reg.cloudDate ? 'warning_source_missing' : checkStatus(reg.meetingDate, reg.cloudDate);
-            const systemStatus = !reg.systemDate ? 'warning_source_missing' : checkStatus(reg.meetingDate, reg.systemDate);
-            const meetingStatus = !reg.meetingDate ? 'warning_source_missing' : 'ok';
+            
+            // New Logic: Everything compares against latestDate
+            // If latestDate is missing, everything is uncertain ('warning_source_missing')
+            const latestStatus = !reg.latestDate ? 'warning_source_missing' : 'ok';
+            const meetingStatus = checkStatus(reg.latestDate, reg.meetingDate);
+            const cloudStatus = checkStatus(reg.latestDate, reg.cloudDate);
+            const systemStatus = checkStatus(reg.latestDate, reg.systemDate);
 
             return (
-                <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow card-transition relative z-10">
+                <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow card-transition relative z-10 group focus-within:z-50 hover:z-30">
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4 pb-3 border-b border-gray-100">
                         <input 
                             type="text" 
@@ -395,8 +414,9 @@
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 relative z-20">
-                        <DateInput label="校級會議通過" dateValue={reg.meetingDate} onChange={(val) => onUpdate({ ...reg, meetingDate: val })} status={meetingStatus} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3 relative z-20">
+                        <DateInput label="最新版本日期" dateValue={reg.latestDate} onChange={(val) => onUpdate({ ...reg, latestDate: val })} isBenchmark={true} />
+                        <DateInput label="校級會議" dateValue={reg.meetingDate} onChange={(val) => onUpdate({ ...reg, meetingDate: val })} status={meetingStatus} />
                         <DateInput label="系所雲端" dateValue={reg.cloudDate} onChange={(val) => onUpdate({ ...reg, cloudDate: val })} status={cloudStatus} />
                         <DateInput label="法規系統" dateValue={reg.systemDate} onChange={(val) => onUpdate({ ...reg, systemDate: val })} status={systemStatus} />
                     </div>
@@ -435,7 +455,7 @@
         };
 
         const RegulationListSection = ({ title, list, onUpdateList, badgeColor }) => {
-            const add = () => onUpdateList([...list, { id: generateId(), name: '', meetingDate: '', cloudDate: '', systemDate: '', note: '' }]);
+            const add = () => onUpdateList([...list, { id: generateId(), name: '', latestDate: '', meetingDate: '', cloudDate: '', systemDate: '', note: '' }]);
             const update = (item) => onUpdateList(list.map(i => i.id === item.id ? item : i));
             const remove = (id) => confirm("確定刪除？") && onUpdateList(list.filter(i => i.id !== id));
 
@@ -464,9 +484,10 @@
             const allRules = [...(dept.committeeRules || []), ...(dept.internshipRules || [])];
             const totalRules = allRules.length;
             const warnings = allRules.filter(r => 
-                !r.meetingDate || !r.cloudDate || !r.systemDate ||
-                checkStatus(r.meetingDate, r.cloudDate) === 'warning' || 
-                checkStatus(r.meetingDate, r.systemDate) === 'warning'
+                !r.latestDate || 
+                checkStatus(r.latestDate, r.meetingDate) !== 'ok' ||
+                checkStatus(r.latestDate, r.cloudDate) !== 'ok' ||
+                checkStatus(r.latestDate, r.systemDate) !== 'ok'
             ).length;
 
             return (
@@ -515,7 +536,7 @@
             if (allItems.length === 0) return <div className="flex flex-col items-center justify-center h-[60vh] text-center text-gray-400">尚無資料</div>;
 
             return (
-                <div className="animate-fade-in max-w-7xl mx-auto pb-20">
+                <div className="animate-fade-in w-full max-w-[1800px] mx-auto pb-20 px-4">
                     <header className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold text-slate-700 flex items-center gap-3"><span className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><TableIcon className="w-6 h-6" /></span> 詳細報表</h2>
                         <div className="text-sm text-gray-500 font-num">共 {allItems.length} 筆資料</div>
@@ -524,22 +545,30 @@
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
-                                    <tr><th className="px-6 py-4">學院/學系</th><th className="px-6 py-4">法規名稱</th><th className="px-4 py-4">校級會議</th><th className="px-4 py-4">系所雲端</th><th className="px-4 py-4">法規系統</th><th className="px-6 py-4">備註</th></tr>
+                                    <tr>
+                                        <th className="px-6 py-4 min-w-[150px]">學院/學系</th>
+                                        <th className="px-6 py-4 min-w-[200px]">法規名稱</th>
+                                        <th className="px-4 py-4 min-w-[120px]">最新版本</th>
+                                        <th className="px-4 py-4 min-w-[120px]">校級會議</th>
+                                        <th className="px-4 py-4 min-w-[120px]">系所雲端</th>
+                                        <th className="px-4 py-4 min-w-[120px]">法規系統</th>
+                                        <th className="px-6 py-4 min-w-[300px]">備註</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {allItems.map((item, idx) => {
-                                        const meetingStatus = !item.meetingDate ? 'warning_source_missing' : 'ok';
-                                        const cloudStatus = !item.cloudDate ? 'warning_source_missing' : checkStatus(item.meetingDate, item.cloudDate);
-                                        const systemStatus = !item.systemDate ? 'warning_source_missing' : checkStatus(item.meetingDate, item.systemDate);
+                                        const meetingStatus = checkStatus(item.latestDate, item.meetingDate);
+                                        const cloudStatus = checkStatus(item.latestDate, item.cloudDate);
+                                        const systemStatus = checkStatus(item.latestDate, item.systemDate);
                                         
                                         return (
                                             <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                                                 <td className="px-6 py-4"><div className="font-bold text-slate-700">{item.deptName}</div><div className="text-xs text-gray-400">{item.colName}</div></td>
                                                 <td className="px-6 py-4"><div className="font-medium text-slate-800">{item.name || '(未命名)'}</div><div className="text-xs text-gray-400 inline-block px-1.5 py-0.5 rounded bg-gray-100 mt-1">{item.type}</div></td>
                                                 <td className="px-4 py-4">
-                                                    <div className={`font-num ${!item.meetingDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.meetingDate) || '未上傳'}</div>
-                                                    {meetingStatus === 'warning_source_missing' && !item.meetingDate && <span className="text-red-500 text-xs font-bold flex items-center gap-1 mt-1"><AlertIcon className="w-3 h-3"/> 缺漏</span>}
+                                                    <div className={`font-num font-bold ${!item.latestDate ? 'text-red-500' : 'text-amber-600'}`}>{toROCDateStr(item.latestDate) || '未設定'}</div>
                                                 </td>
+                                                <td className="px-4 py-4"><div className={`font-num ${!item.meetingDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.meetingDate) || '未上傳'}</div><div className="mt-1"><TableStatusBadge status={meetingStatus} label="校級" /></div></td>
                                                 <td className="px-4 py-4"><div className={`font-num ${!item.cloudDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.cloudDate) || '未上傳'}</div><div className="mt-1"><TableStatusBadge status={cloudStatus} label="雲端" /></div></td>
                                                 <td className="px-4 py-4"><div className={`font-num ${!item.systemDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.systemDate) || '未上傳'}</div><div className="mt-1"><TableStatusBadge status={systemStatus} label="系統" /></div></td>
                                                 <td className="px-6 py-4 text-gray-500 text-xs break-words whitespace-pre-wrap">{item.note || '-'}</td>
@@ -562,20 +591,31 @@
                 const rules = [...(dept.committeeRules || []), ...(dept.internshipRules || [])];
                 rules.forEach(r => {
                     totalItems++;
-                    const isMeetingMissing = !r.meetingDate;
-                    const isCloudMissing = !r.cloudDate;
-                    const isSystemMissing = !r.systemDate;
                     
-                    const isCloudWarning = r.meetingDate && r.cloudDate && checkStatus(r.meetingDate, r.cloudDate) === 'warning';
-                    const isSystemWarning = r.meetingDate && r.systemDate && checkStatus(r.meetingDate, r.systemDate) === 'warning';
+                    const isLatestMissing = !r.latestDate;
+                    const isMeetingMismatch = checkStatus(r.latestDate, r.meetingDate) !== 'ok';
+                    const isCloudMismatch = checkStatus(r.latestDate, r.cloudDate) !== 'ok';
+                    const isSystemMismatch = checkStatus(r.latestDate, r.systemDate) !== 'ok';
                     
-                    if (isMeetingMissing || isCloudMissing || isSystemMissing || isCloudWarning || isSystemWarning) {
+                    if (isLatestMissing || isMeetingMismatch || isCloudMismatch || isSystemMismatch) {
                         const issues = [];
-                        if (isMeetingMissing) issues.push('校級未上傳');
-                        if (isCloudMissing) issues.push('雲端未上傳');
-                        if (isSystemMissing) issues.push('系統未上傳');
-                        if (isCloudWarning) issues.push(`雲端未同步 (校:${toROCDateStr(r.meetingDate)} 雲:${toROCDateStr(r.cloudDate)})`);
-                        if (isSystemWarning) issues.push(`系統未同步 (校:${toROCDateStr(r.meetingDate)} 系:${toROCDateStr(r.systemDate)})`);
+                        if (isLatestMissing) issues.push('最新版本日期未設定');
+                        else {
+                            // If benchmark exists, show specific mismatches
+                            const benchmark = toROCDateStr(r.latestDate);
+                            if (isMeetingMismatch) {
+                                const current = r.meetingDate ? toROCDateStr(r.meetingDate) : '未上傳';
+                                issues.push(`校級不符 (準:${benchmark} 現:${current})`);
+                            }
+                            if (isCloudMismatch) {
+                                const current = r.cloudDate ? toROCDateStr(r.cloudDate) : '未上傳';
+                                issues.push(`雲端不符 (準:${benchmark} 現:${current})`);
+                            }
+                            if (isSystemMismatch) {
+                                const current = r.systemDate ? toROCDateStr(r.systemDate) : '未上傳';
+                                issues.push(`系統不符 (準:${benchmark} 現:${current})`);
+                            }
+                        }
                         
                         warningItems.push({
                             college: col.name,
@@ -639,13 +679,13 @@
 
         const App = () => {
             const [data, setData] = useState(() => {
-                const saved = localStorage.getItem('reg_tracker_v3');
+                const saved = localStorage.getItem('reg_tracker_v4'); // Updated version key
                 try { return saved ? JSON.parse(saved) : initialData; } catch { return initialData; }
             });
             const [activeTab, setActiveTab] = useState('dashboard');
             const [isSidebarOpen, setSidebarOpen] = useState(true);
 
-            useEffect(() => localStorage.setItem('reg_tracker_v3', JSON.stringify(data)), [data]);
+            useEffect(() => localStorage.setItem('reg_tracker_v4', JSON.stringify(data)), [data]);
 
             const addCollege = () => { const id = generateId(); setData([...data, { id, name: '新學院', departments: [] }]); setActiveTab(id); };
             const updateCollege = (c) => setData(data.map(x => x.id === c.id ? c : x));
@@ -655,7 +695,7 @@
             const handleFileExport = () => {
                 const rows = [];
                 data.forEach(col => col.departments.forEach(dept => {
-                    const push = (t, r) => rows.push({'學院ID':col.id, '學院名稱':col.name, '學系ID':dept.id, '學系名稱':dept.name, '法規類型':t, '法規ID':r.id, '法規名稱':r.name, '校級會議日期':r.meetingDate, '系雲端日期':r.cloudDate, '法規系統日期':r.systemDate, '備註':r.note});
+                    const push = (t, r) => rows.push({'學院ID':col.id, '學院名稱':col.name, '學系ID':dept.id, '學系名稱':dept.name, '法規類型':t, '法規ID':r.id, '法規名稱':r.name, '最新版本日期': r.latestDate, '校級會議日期':r.meetingDate, '系所雲端日期':r.cloudDate, '法規系統日期':r.systemDate, '備註':r.note});
                     dept.committeeRules.forEach(r => push('委員會設置要點', r));
                     dept.internshipRules.forEach(r => push('實習辦法', r));
                 }));
@@ -684,8 +724,9 @@
                                 const rule = {
                                     id: row['法規ID'] || generateId(),
                                     name: row['法規名稱'],
+                                    latestDate: row['最新版本日期'] || '',
                                     meetingDate: row['校級會議日期'] || '',
-                                    cloudDate: row['系雲端日期'] || '',
+                                    cloudDate: row['系所雲端日期'] || '',
                                     systemDate: row['法規系統日期'] || '',
                                     note: row['備註'] || ''
                                 };
@@ -713,7 +754,7 @@
                                 <div key={col.id} className="group relative flex items-center mb-1">
                                     <button onClick={() => setActiveTab(col.id)} className={`flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${activeTab === col.id ? 'bg-gray-100 text-gray-900 font-bold' : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'}`}>
                                         <span className="truncate flex-1 text-left">{col.name}</span>
-                                        {col.departments.some(d => [...d.committeeRules, ...d.internshipRules].some(r => !r.meetingDate || !r.cloudDate || !r.systemDate || checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && <span className="w-2 h-2 bg-red-500 rounded-full shadow-sm"></span>}
+                                        {col.departments.some(d => [...d.committeeRules, ...d.internshipRules].some(r => !r.latestDate || checkStatus(r.latestDate, r.meetingDate)!=='ok' || checkStatus(r.latestDate, r.cloudDate)!=='ok' || checkStatus(r.latestDate, r.systemDate)!=='ok')) && <span className="w-2 h-2 bg-red-500 rounded-full shadow-sm"></span>}
                                     </button>
                                 </div>
                             ))}
