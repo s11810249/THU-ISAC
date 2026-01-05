@@ -276,7 +276,12 @@
 
                     if (state.scale === 1) return;
                     
-                    updateTransform(state.lastPanX + dx, state.lastPanY + dy, state.scale, false); 
+                    // 修改：拖曳時計算邊界，確保不露出黑邊
+                    const targetX = state.lastPanX + dx;
+                    const targetY = state.lastPanY + dy;
+                    const constrained = constrainBounds(targetX, targetY, state.scale);
+                    
+                    updateTransform(constrained.x, constrained.y, state.scale, false); 
                 } else if (e.touches.length === 2) {
                     const dist = getDist(e.touches);
                     const ratio = dist / state.initialPinchDist;
@@ -319,7 +324,10 @@
                 // 重要修正：邊界檢查後，必須更新 panX/panY 狀態，否則下次拖曳會跳回原點
                 state.panX = bounds.x;
                 state.panY = bounds.y;
-                animateTo(bounds.x, bounds.y, state.scale);
+                
+                // 修改：如果只是拖曳（最大觸控數為1），不顯示縮放比例
+                const showToast = state.maxTouches > 1;
+                animateTo(bounds.x, bounds.y, state.scale, showToast);
                 
                 triggerHighResRender();
             }
@@ -504,13 +512,14 @@
             if (updateText) updateLabel();
         }
 
-        function animateTo(x, y, scale) {
+        // 修改：增加 showToast 參數控制
+        function animateTo(x, y, scale, showToast = true) {
             const el = document.querySelector('.page-container');
             if (!el) return;
             el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
             el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
             state.panX = x; state.panY = y; state.scale = scale;
-            updateLabel();
+            if (showToast) updateLabel();
             setTimeout(() => { el.style.transition = ''; }, 400);
         }
 
