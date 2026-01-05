@@ -196,7 +196,9 @@
             startX: 0, startY: 0,
             initialPinchDist: 0, initialScale: 1,
             contentWidth: 0, contentHeight: 0,
-            touchStartTime: 0, touchStartX: 0, touchStartY: 0
+            touchStartTime: 0, touchStartX: 0, touchStartY: 0,
+            // 新增：追蹤最大觸控點數，防止縮放結束時誤觸翻頁
+            maxTouches: 0 
         };
 
         const MAX_SCALE = 4.0;
@@ -204,7 +206,6 @@
         const MAX_RENDER_QUALITY = 2.0; 
         
         let renderTimeout = null;
-        // 增加 requestAnimationFrame 變數
         let rafId = null; 
 
         window.addEventListener('load', async () => {
@@ -233,7 +234,10 @@
         }
 
         function handleTouchStart(e) {
+            // 新增：每次新的觸控開始（從0指變1指），重置最大觸控點數
             if (e.touches.length === 1) {
+                state.maxTouches = 1;
+                
                 state.touchStartTime = Date.now();
                 state.touchStartX = e.touches[0].clientX;
                 state.touchStartY = e.touches[0].clientY;
@@ -243,7 +247,12 @@
                 state.startY = e.touches[0].clientY;
                 state.lastPanX = state.panX;
                 state.lastPanY = state.panY;
-            } else if (e.touches.length === 2) {
+            } else {
+                // 如果有多指，更新最大觸控數
+                state.maxTouches = Math.max(state.maxTouches, e.touches.length);
+            }
+            
+            if (e.touches.length === 2) {
                 state.isDragging = false;
                 state.initialPinchDist = getDist(e.touches);
                 state.initialScale = state.scale;
@@ -253,7 +262,9 @@
         function handleTouchMove(e) {
             e.preventDefault(); 
             
-            // 使用 requestAnimationFrame 優化渲染頻率
+            // 持續追蹤最大觸控數
+            state.maxTouches = Math.max(state.maxTouches, e.touches.length);
+
             if (rafId) return;
 
             rafId = requestAnimationFrame(() => {
@@ -263,19 +274,16 @@
                     const dx = e.touches[0].clientX - state.startX;
                     const dy = e.touches[0].clientY - state.startY;
 
-                    // 1x 模式下允許微小抖動，但不允許 Pan，避免卡頓
                     if (state.scale === 1) return;
                     
-                    updateTransform(state.lastPanX + dx, state.lastPanY + dy, state.scale, false); // false = 不更新文字
+                    updateTransform(state.lastPanX + dx, state.lastPanY + dy, state.scale, false); 
                 } else if (e.touches.length === 2) {
                     const dist = getDist(e.touches);
                     const ratio = dist / state.initialPinchDist;
                     let newScale = Math.min(Math.max(MIN_SCALE, state.initialScale * ratio), MAX_SCALE);
                     
-                    // 縮放時不做邊界檢查，只更新 CSS transform
-                    // 並且不更新文字 UI 以提升效能
                     updateTransform(state.panX, state.panY, newScale, false); 
-                    state.scale = newScale; // 暫存 scale
+                    state.scale = newScale; 
                 }
             });
         }
@@ -283,7 +291,6 @@
         function handleTouchEnd(e) {
             state.isDragging = false;
             
-            // 輕點偵測
             if (e.changedTouches.length === 1) {
                 const timeDiff = Date.now() - state.touchStartTime;
                 const distX = Math.abs(e.changedTouches[0].clientX - state.touchStartX);
@@ -296,25 +303,24 @@
                 }
             }
 
-            // 縮放結束後的處理
-            if (state.scale < 1.05) { // 稍微寬容一點，< 1.05 都算要復原
+            if (state.scale < 1.05) { 
                 resetZoom();
                 
-                // 只有在還原狀態下 (Scale 1.0) 才允許翻頁
-                if (e.changedTouches.length === 1) { 
+                // 修改：只有在整個操作過程中「始終只有一隻手指」時，才允許翻頁
+                // 這解決了「雙指縮小後放開會誤判為單指滑動」的問題
+                if (e.changedTouches.length === 1 && state.maxTouches === 1) { 
                     const dx = e.changedTouches[0].clientX - state.startX;
-                    if (Math.abs(dx) > 80) { // 滑動門檻
+                    if (Math.abs(dx) > 80) { 
                         changePage(dx > 0 ? -1 : 1);
                     }
                 }
             } else {
-                // 放大狀態：執行邊界檢查並更新 UI 文字
                 const bounds = constrainBounds(state.panX, state.panY, state.scale);
+                // 重要修正：邊界檢查後，必須更新 panX/panY 狀態，否則下次拖曳會跳回原點
                 state.panX = bounds.x;
                 state.panY = bounds.y;
                 animateTo(bounds.x, bounds.y, state.scale);
                 
-                // 延遲重繪高畫質
                 triggerHighResRender();
             }
         }
@@ -476,7 +482,7 @@
             clearTimeout(renderTimeout);
             renderTimeout = setTimeout(() => {
                 if (state.scale > 1.2) renderCurrentPage(currentPage, true);
-            }, 600); // 增加延遲，避免連續操作時一直重繪
+            }, 600); 
         }
 
         function zoomStep(delta) {
@@ -486,10 +492,15 @@
             triggerHighResRender();
         }
 
-        // 修改：增加 updateText 參數，控制是否更新 UI 文字
+        // 修改：更新座標的同時，務必更新 state，確保拖曳狀態正確
         function updateTransform(x, y, scale, updateText = true) {
             const el = document.querySelector('.page-container');
             if (el) el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+            
+            // 修復拖曳回彈問題：即時更新狀態
+            state.panX = x;
+            state.panY = y;
+            
             if (updateText) updateLabel();
         }
 
