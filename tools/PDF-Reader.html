@@ -5,14 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>PDF Reader Pro</title>
+    <meta name="apple-mobile-web-app-title" content="PDF Reader">
+    
+    <!-- 新增：美化主畫面 Icon (藍底白字風格) -->
+    <!-- 這會產生一個看起來像原生 App 的圖示，不再是網頁截圖 -->
+    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=PDF&background=0a84ff&color=fff&length=3&font-size=0.35&bold=true&rounded=true&size=192">
+    <link rel="icon" href="https://ui-avatars.com/api/?name=PDF&background=0a84ff&color=fff&length=3&font-size=0.35&bold=true&rounded=true&size=192">
+
+    <title>PDF Reader</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 
     <script>
-        // 增加協議檢查，避免在 blob: 或非 http/https 環境下報錯
+        // 確保只在支援的環境下註冊 Service Worker
         if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
             navigator.serviceWorker.register('./sw.js').catch(console.error);
         }
@@ -22,7 +29,6 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    // 修改：優先使用黑體 (PingFang, Microsoft JhengHei)
                     fontFamily: { 
                         sans: ['"PingFang TC"', '"Microsoft JhengHei"', '"Heiti TC"', '-apple-system', 'sans-serif'] 
                     },
@@ -41,30 +47,31 @@
             background-color: #000;
             overflow: hidden; touch-action: none;
             user-select: none; -webkit-user-select: none;
-            /* 強制套用黑體 */
             font-family: "PingFang TC", "Microsoft JhengHei", "Heiti TC", -apple-system, sans-serif;
         }
 
-        /* 視窗層 */
         #viewport {
             width: 100vw; height: 100vh;
             overflow: hidden; position: relative; z-index: 0;
+            background-color: #000; /* 避免邊緣漏光 */
         }
         
-        /* 畫布容器 */
         .page-container {
             width: 100vw; height: 100vh;
             display: flex; align-items: center; justify-content: center;
             transform-origin: 50% 50%; will-change: transform;
+            position: absolute; top: 0; left: 0;
+            /* 使用 GPU 加速合成 */
+            transform: translate3d(0,0,0);
         }
 
         canvas {
             display: block; max-width: 100%; max-height: 100%;
             object-fit: contain;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+            /* 陰影稍微減弱以節省 GPU 渲染資源 */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
-        /* 現代化 UI 元件 */
         .ui-island {
             background: rgba(30, 30, 32, 0.85);
             backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -80,12 +87,10 @@
         }
         .btn-icon:active { background: rgba(255,255,255,0.2); transform: scale(0.96); }
 
-        /* UI 隱藏動畫狀態 */
         .ui-hidden .ui-top { transform: translateY(-150%); opacity: 0; }
         .ui-hidden .ui-bottom { transform: translateY(150%) translateX(-50%); opacity: 0; }
         .ui-bottom { transform: translateY(0) translateX(-50%); }
 
-        /* Slider 美化 */
         input[type=range] {
             -webkit-appearance: none; background: transparent; height: 20px;
         }
@@ -98,17 +103,23 @@
             width: 100%; height: 2px; background: rgba(255,255,255,0.3); border-radius: 2px;
         }
 
-        /* 修改：Skeleton 移除 monospace，統一使用黑體 */
         .skeleton { color: #555; letter-spacing: 2px; font-weight: 500; }
-        
-        /* 數字字體優化：讓數字使用等寬黑體 (Tabular nums) 以避免跳動 */
         .font-num { font-variant-numeric: tabular-nums; }
+        
+        #pageLoading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #0a84ff; border-radius: 50%;
+            animation: spin 0.8s linear infinite; pointer-events: none; z-index: 5;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <!-- 視窗層 -->
     <div id="viewport">
+        <div id="pageLoading"></div>
         <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 z-10">
             <div class="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-4 text-white/50">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
@@ -118,10 +129,9 @@
         </div>
     </div>
 
-    <!-- 現代化 UI 層 -->
+    <!-- UI 層 -->
     <div id="ui-layer" class="fixed inset-0 pointer-events-none z-50 flex flex-col justify-between">
         
-        <!-- 頂部懸浮島 -->
         <div class="ui-top pointer-events-auto mt-safe-top pt-2 px-4 flex justify-between items-start transition-all duration-500">
             <button onclick="toggleSidebar()" class="ui-island rounded-full w-10 h-10 flex items-center justify-center text-white/90">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
@@ -136,16 +146,13 @@
             </button>
         </div>
 
-        <!-- 狀態 Toast -->
         <div id="toast" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ui-island px-5 py-2 rounded-full text-white/90 text-sm font-medium opacity-0 transition-opacity duration-300 font-num">
             100%
         </div>
 
-        <!-- 底部懸浮島 -->
         <div class="ui-bottom pointer-events-auto absolute bottom-8 left-1/2 w-[90%] max-w-md pb-safe-bottom transition-all duration-500 origin-bottom">
             <div class="ui-island rounded-3xl p-4 flex flex-col gap-4">
                 
-                <!-- 頁面進度條 -->
                 <div class="flex items-center gap-4 px-1">
                     <span id="pageCurrent" class="text-xs text-gray-400 w-8 text-right font-num">1</span>
                     <input type="range" id="pageSlider" class="flex-1" min="1" max="1" oninput="onSliderInput(this.value)" onchange="changePage(parseInt(this.value), true)">
@@ -154,7 +161,6 @@
 
                 <div class="h-px bg-white/5 w-full"></div>
 
-                <!-- 按鈕群 -->
                 <div class="flex justify-between items-center">
                     <div class="flex gap-1">
                         <button onclick="changePage(-1)" class="btn-icon hover:bg-white/10">
@@ -182,7 +188,6 @@
         </div>
     </div>
 
-    <!-- 側邊目錄 -->
     <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm z-[60]"></div>
     <div id="sidebar" class="fixed top-0 left-0 h-full w-80 bg-[#1c1c1e] transform -translate-x-full transition-transform duration-300 shadow-2xl flex flex-col pt-safe-top pb-safe-bottom border-r border-white/10 z-[70]">
         <div class="p-5 border-b border-white/10 flex justify-between items-center bg-[#1c1c1e]">
@@ -191,9 +196,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        <div id="outlineContainer" class="flex-1 overflow-y-auto p-2 no-scrollbar bg-[#0f0f10]">
-            <!-- 目錄項目 -->
-        </div>
+        <div id="outlineContainer" class="flex-1 overflow-y-auto p-2 no-scrollbar bg-[#0f0f10]"></div>
     </div>
 
     <input type="file" id="fileInput" accept="application/pdf" class="hidden">
@@ -202,6 +205,7 @@
         let pdfDoc = null;
         let totalPages = 0;
         let currentPage = 1;
+        let isRendering = false;
         
         let state = {
             scale: 1,      
@@ -215,7 +219,8 @@
 
         const MAX_SCALE = 4.0;
         const MIN_SCALE = 1.0;
-        const MAX_RENDER_QUALITY = 2.5; 
+        // iPad Air 2 穩定性設定：2.0 (Retina) 是最佳平衡點，避免過高導致卡頓
+        const MAX_RENDER_QUALITY = 2.0; 
         
         let renderTimeout = null;
 
@@ -225,7 +230,7 @@
             const savedPage = await localforage.getItem('cached_current_page');
 
             if (savedPdf) {
-                document.getElementById('bookTitle').innerText = savedName || 'Document';
+                setDocTitle(savedName || 'Document');
                 await loadPdf(savedPdf, savedPage || 1);
             }
 
@@ -234,6 +239,11 @@
             viewport.addEventListener('touchmove', handleTouchMove, { passive: false });
             viewport.addEventListener('touchend', handleTouchEnd);
         });
+
+        function setDocTitle(name) {
+            const cleanName = name.replace(/\.pdf$/i, '');
+            document.getElementById('bookTitle').innerText = cleanName;
+        }
 
         function toggleUI() {
             document.getElementById('ui-layer').classList.toggle('ui-hidden');
@@ -365,7 +375,8 @@
             const buffer = await file.arrayBuffer();
             await localforage.setItem('cached_pdf_data', buffer);
             await localforage.setItem('cached_pdf_name', file.name);
-            document.getElementById('bookTitle').innerText = file.name;
+            setDocTitle(file.name);
+            resetZoom(false);
             loadPdf(buffer, 1);
         });
 
@@ -386,27 +397,22 @@
 
         async function renderCurrentPage(num, forceHighRes = false) {
             if (num < 1 || num > totalPages) return;
+            if (isRendering && !forceHighRes) return;
+            isRendering = true;
+            
+            const spinner = document.getElementById('pageLoading');
+            if(!forceHighRes) spinner.style.opacity = '1';
+
             currentPage = num;
             updateUIInfo();
             localforage.setItem('cached_current_page', currentPage);
 
-            if (!forceHighRes) resetZoom(false);
-
             const viewportEl = document.getElementById('viewport');
-            let oldContainer = document.querySelector('.page-container');
             
-            if (!forceHighRes) {
-                viewportEl.innerHTML = '';
-            }
-
             const container = document.createElement('div');
             container.className = 'page-container';
+            // 關鍵：繼承目前的狀態，讓新頁面「無縫」接上
             container.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
-            
-            if (!forceHighRes) {
-                container.innerHTML = `<div class="skeleton">LOADING</div>`;
-                viewportEl.appendChild(container);
-            }
 
             try {
                 const page = await pdfDoc.getPage(num);
@@ -417,6 +423,10 @@
                 
                 let qualityMultiplier = forceHighRes ? state.scale : 1;
                 let deviceDPR = window.devicePixelRatio || 1;
+                
+                // iPad Air 2 優化：換頁時若放大，限制最高 1.5 倍渲染，既清晰又不會卡死
+                if (!forceHighRes && state.scale > 1) qualityMultiplier = Math.min(state.scale, 1.5);
+
                 let finalRenderScale = fitScale * Math.min(deviceDPR * qualityMultiplier, MAX_RENDER_QUALITY);
                 
                 const renderViewport = page.getViewport({ scale: finalRenderScale });
@@ -436,15 +446,28 @@
 
                 await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
                 
-                if (forceHighRes) {
-                    if (oldContainer) oldContainer.remove();
-                    viewportEl.appendChild(container);
-                } else {
-                    container.innerHTML = '';
-                }
                 container.appendChild(canvas);
 
+                // 移除舊頁面，加入新頁面 (Double Buffering)
+                const oldContainers = viewportEl.querySelectorAll('.page-container');
+                oldContainers.forEach(el => el.remove());
+                
+                viewportEl.appendChild(container);
+
+                const bounds = constrainBounds(state.panX, state.panY, state.scale);
+                if (bounds.x !== state.panX || bounds.y !== state.panY) {
+                    updateTransform(bounds.x, bounds.y, state.scale);
+                }
+
+                // 若當前放大且為低畫質預覽，延遲觸發高畫質重繪
+                if (!forceHighRes && state.scale > 1.2) {
+                    triggerHighResRender();
+                }
+
             } catch (err) { console.error(err); }
+            
+            spinner.style.opacity = '0';
+            isRendering = false;
         }
 
         function triggerHighResRender() {
