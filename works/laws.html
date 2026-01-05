@@ -262,14 +262,15 @@
                     className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-80 max-h-96 overflow-y-auto animate-fade-in"
                     style={{ top: '100%', right: 0, marginTop: '4px' }}
                 >
-                    <div className="sticky top-0 bg-gray-50 border-b border-gray-100 px-4 py-2 text-xs font-bold text-gray-500 uppercase">
-                        選擇常用備註
+                    <div className="sticky top-0 bg-gray-50 border-b border-gray-100 px-4 py-2 text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                        <span>選擇常用備註 (可多選)</span>
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
                     </div>
                     <div className="p-2 space-y-1">
                         {NOTE_TEMPLATES.map((tpl, idx) => (
                             <button
                                 key={idx}
-                                onClick={() => { onSelect(tpl.content); onClose(); }}
+                                onClick={() => onSelect(tpl.content)}
                                 className="w-full text-left p-2 hover:bg-blue-50 rounded-md transition-colors group"
                             >
                                 <div className="text-sm font-bold text-gray-700 mb-1">{tpl.label}</div>
@@ -420,7 +421,10 @@
                             
                             {isTemplateOpen && (
                                 <NoteTemplatePicker 
-                                    onSelect={(text) => onUpdate({ ...reg, note: text })} 
+                                    onSelect={(text) => {
+                                        const newNote = reg.note ? reg.note + '\n' + text : text;
+                                        onUpdate({ ...reg, note: newNote });
+                                    }}
                                     onClose={() => setIsTemplateOpen(false)} 
                                 />
                             )}
@@ -570,8 +574,8 @@
                         if (isMeetingMissing) issues.push('校級未上傳');
                         if (isCloudMissing) issues.push('雲端未上傳');
                         if (isSystemMissing) issues.push('系統未上傳');
-                        if (isCloudWarning) issues.push('雲端日期過舊');
-                        if (isSystemWarning) issues.push('系統日期過舊');
+                        if (isCloudWarning) issues.push(`雲端未同步 (校:${toROCDateStr(r.meetingDate)} 雲:${toROCDateStr(r.cloudDate)})`);
+                        if (isSystemWarning) issues.push(`系統未同步 (校:${toROCDateStr(r.meetingDate)} 系:${toROCDateStr(r.systemDate)})`);
                         
                         warningItems.push({
                             college: col.name,
