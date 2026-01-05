@@ -140,9 +140,6 @@
             if (status === 'warning') statusClass = "bg-red-50/30 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
             if (status === 'ok') statusClass = "bg-emerald-50/30 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
 
-            // Visual text: Show ROC date or "Not Set"
-            const displayValue = dateValue ? toROCDate(dateValue) : '未設定';
-
             return (
                 <div className={`p-3 rounded-xl border transition-all ${statusClass} flex flex-col gap-1 relative group`}>
                     <div className="flex justify-between items-center mb-1">
@@ -150,14 +147,13 @@
                         {status && <StatusBadge status={status} />}
                     </div>
                     
-                    <div className="flex items-center gap-2 relative h-6">
-                        {/* Visual Layer: Text Display */}
-                        <div className={`absolute inset-0 flex items-center text-sm font-num select-none ${dateValue ? 'text-gray-700' : 'text-gray-400 italic'}`}>
-                            {displayValue}
+                    <div className="relative h-8 w-full">
+                        {/* Display Layer (ROC Date or Placeholder) - Pointer events none ensures clicks go to input */}
+                        <div className={`absolute inset-0 flex items-center text-sm font-num pointer-events-none ${dateValue ? 'text-gray-700' : 'text-gray-400 italic'}`}>
+                            {dateValue ? toROCDate(dateValue) : '未設定'}
                         </div>
 
-                        {/* Interactive Layer: Invisible Date Input */}
-                        {/* It sits on top of the text but below the clear button (due to z-index/layout) */}
+                        {/* Input Layer (Invisible but Clickable) - opacity-0 hides native UI but keeps functionality */}
                         <input 
                             type="date" 
                             value={dateValue || ''}
@@ -165,12 +161,12 @@
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
                         
-                        {/* Clear Button - positioned right */}
+                        {/* Clear Button (Above Input, z-20) */}
                         {dateValue && (
                             <button 
                                 onClick={handleClear}
-                                title="清除日期 (設為未上傳)"
-                                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors p-1 z-20"
+                                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 p-1 text-gray-400 hover:text-red-500 transition-colors bg-transparent"
+                                title="清除"
                             >
                                 <XCircleIcon className="w-5 h-5" />
                             </button>
