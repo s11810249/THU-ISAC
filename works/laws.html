@@ -102,9 +102,6 @@
         const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
         
         // Strict Status Check Logic
-        // 1. If source (Meeting) is missing -> WARNING (未送校級)
-        // 2. If target (Cloud/System) is missing -> WARNING
-        // 3. If dates don't match exactly -> WARNING
         const checkStatus = (sourceDate, targetDate) => {
             if (!sourceDate) return 'warning_source_missing'; // Meeting date not set
             if (!targetDate) return 'warning'; // Target date not set
@@ -141,8 +138,28 @@
 
         const initialData = [];
 
-        // --- Components ---
+        // --- UI Sub-Components (Badge & Icons) ---
+        const StatusBadge = ({ status }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">待確認</span>;
+            if (status === 'ok') return (
+                <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                    <CheckIcon className="w-3.5 h-3.5 mr-1" /> 同步
+                </div>
+            );
+            return (
+                <div className="flex items-center text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                    <AlertIcon className="w-3.5 h-3.5 mr-1" /> 未同步
+                </div>
+            );
+        };
 
+        const TableStatusBadge = ({ status, label }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs">-</span>;
+            if (status === 'ok') return <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> {label}</span>;
+            return <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未同步</span>;
+        }
+
+        // --- Custom ROC Date Picker Component (Popup) ---
         const CustomROCDatePicker = ({ isOpen, onClose, dateValue, onChange, position }) => {
             const pickerRef = useRef(null);
             const [viewYear, setViewYear] = useState(() => dateValue ? parseInt(dateValue.split('-')[0]) : new Date().getFullYear());
@@ -264,26 +281,6 @@
             );
         };
 
-        const StatusBadge = ({ status }) => {
-            if (status === 'empty') return <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">待確認</span>;
-            if (status === 'ok') return (
-                <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                    <CheckIcon className="w-3.5 h-3.5 mr-1" /> 同步
-                </div>
-            );
-            return (
-                <div className="flex items-center text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                    <AlertIcon className="w-3.5 h-3.5 mr-1" /> 未同步
-                </div>
-            );
-        };
-
-        const TableStatusBadge = ({ status, label }) => {
-            if (status === 'empty') return <span className="text-gray-400 text-xs">-</span>;
-            if (status === 'ok') return <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> {label}</span>;
-            return <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未同步</span>;
-        }
-
         const DateInput = ({ label, dateValue, onChange, status }) => {
             const [inputValue, setInputValue] = useState(toROCDateStr(dateValue));
             const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -324,7 +321,7 @@
 
             if (status === 'warning_source_missing') {
                 statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
-                badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未設定</span>;
+                badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未上傳</span>;
             } else if (status === 'warning') {
                 statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
                 badge = <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 未同步</span>;
@@ -345,8 +342,8 @@
                     <div className="relative flex items-center w-full">
                         <input 
                             type="text" 
-                            className="w-full bg-transparent text-sm font-num text-gray-700 outline-none placeholder-gray-400 pr-8"
-                            placeholder="yyy/mm/dd"
+                            className={`w-full bg-transparent text-sm font-num outline-none pr-8 ${!dateValue ? 'text-red-500 font-bold placeholder-red-300' : 'text-gray-700 placeholder-gray-400'}`}
+                            placeholder="未上傳"
                             value={inputValue}
                             onChange={handleTextChange}
                             onBlur={handleBlur}
@@ -378,12 +375,12 @@
 
         const RegulationRow = ({ reg, onUpdate, onDelete }) => {
             const [isTemplateOpen, setIsTemplateOpen] = useState(false);
-            const cloudStatus = checkStatus(reg.meetingDate, reg.cloudDate);
-            const systemStatus = checkStatus(reg.meetingDate, reg.systemDate);
+            const cloudStatus = !reg.cloudDate ? 'warning_source_missing' : checkStatus(reg.meetingDate, reg.cloudDate);
+            const systemStatus = !reg.systemDate ? 'warning_source_missing' : checkStatus(reg.meetingDate, reg.systemDate);
             const meetingStatus = !reg.meetingDate ? 'warning_source_missing' : 'ok';
 
             return (
-                <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow card-transition">
+                <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow card-transition relative z-10">
                     <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4 pb-3 border-b border-gray-100">
                         <input 
                             type="text" 
@@ -397,25 +394,25 @@
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                        <DateInput label="校級會議通過" dateValue={reg.meetingDate} onChange={(val) => onUpdate({ ...reg, meetingDate: val })} status={meetingStatus === 'warning_source_missing' ? 'warning_source_missing' : null} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 relative z-20">
+                        <DateInput label="校級會議通過" dateValue={reg.meetingDate} onChange={(val) => onUpdate({ ...reg, meetingDate: val })} status={meetingStatus} />
                         <DateInput label="系網雲端" dateValue={reg.cloudDate} onChange={(val) => onUpdate({ ...reg, cloudDate: val })} status={cloudStatus} />
                         <DateInput label="法規系統" dateValue={reg.systemDate} onChange={(val) => onUpdate({ ...reg, systemDate: val })} status={systemStatus} />
                     </div>
                     
-                    <div className="flex items-center gap-3 mt-2 px-1 relative">
-                        <span className="text-xs font-medium text-gray-400">備註</span>
-                        <div className="flex-1 relative flex items-center">
-                            <input 
-                                type="text" 
+                    <div className="flex items-start gap-3 mt-2 px-1 relative z-10">
+                        <span className="text-xs font-medium text-gray-400 mt-2">備註</span>
+                        <div className="flex-1 relative flex items-start">
+                            <textarea 
                                 value={reg.note || ''}
                                 onChange={(e) => onUpdate({ ...reg, note: e.target.value })}
-                                className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all"
+                                className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 pr-8 focus:outline-none focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all min-h-[40px] resize-y"
                                 placeholder="點擊輸入備註，或使用右側按鈕選擇樣板..."
+                                rows={1}
                             />
                             <button 
                                 onClick={() => setIsTemplateOpen(!isTemplateOpen)}
-                                className="absolute right-2 text-gray-400 hover:text-blue-600 transition-colors p-1"
+                                className="absolute right-2 top-2 text-gray-400 hover:text-blue-600 transition-colors p-1"
                                 title="選擇常用備註"
                             >
                                 <ClipboardIcon className="w-4 h-4" />
@@ -463,14 +460,14 @@
             const allRules = [...(dept.committeeRules || []), ...(dept.internshipRules || [])];
             const totalRules = allRules.length;
             const warnings = allRules.filter(r => 
-                !r.meetingDate || 
+                !r.meetingDate || !r.cloudDate || !r.systemDate ||
                 checkStatus(r.meetingDate, r.cloudDate) === 'warning' || 
                 checkStatus(r.meetingDate, r.systemDate) === 'warning'
             ).length;
 
             return (
-                <div className="bg-white border border-gray-200 mb-6 shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden">
-                    <div className="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setIsCollapsed(!isCollapsed)}>
+                <div className="bg-white border border-gray-200 mb-6 shadow-sm hover:shadow-md transition-all rounded-2xl">
+                    <div className={`bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors rounded-t-2xl ${isCollapsed ? 'rounded-2xl border-b-0' : ''}`} onClick={() => setIsCollapsed(!isCollapsed)}>
                         <div className="flex items-center gap-4 flex-1">
                             <button className="text-gray-400 hover:text-blue-500 transition-colors">{isCollapsed ? <ChevronDownIcon className="w-5 h-5" /> : <ChevronUpIcon className="w-5 h-5" />}</button>
                             <div className="flex items-center gap-3 flex-1" onClick={(e) => e.stopPropagation()}>
@@ -490,7 +487,7 @@
                         </div>
                     </div>
                     {!isCollapsed && (
-                        <div className="p-6 bg-slate-50/50 flex flex-col xl:flex-row gap-8 animate-fade-in">
+                        <div className="p-6 bg-slate-50/50 flex flex-col xl:flex-row gap-8 animate-fade-in rounded-b-2xl">
                             <RegulationListSection title="委員會設置要點" list={dept.committeeRules || []} onUpdateList={(newList) => onUpdate({...dept, committeeRules: newList})} badgeColor="bg-blue-400" />
                             <div className="hidden xl:block w-px bg-gray-200"></div>
                             <RegulationListSection title="實習辦法" list={dept.internshipRules || []} onUpdateList={(newList) => onUpdate({...dept, internshipRules: newList})} badgeColor="bg-emerald-400" />
@@ -528,20 +525,20 @@
                                 <tbody className="divide-y divide-gray-100">
                                     {allItems.map((item, idx) => {
                                         const meetingStatus = !item.meetingDate ? 'warning_source_missing' : 'ok';
-                                        const cloudStatus = checkStatus(item.meetingDate, item.cloudDate);
-                                        const systemStatus = checkStatus(item.meetingDate, item.systemDate);
+                                        const cloudStatus = !item.cloudDate ? 'warning_source_missing' : checkStatus(item.meetingDate, item.cloudDate);
+                                        const systemStatus = !item.systemDate ? 'warning_source_missing' : checkStatus(item.meetingDate, item.systemDate);
                                         
                                         return (
                                             <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                                                 <td className="px-6 py-4"><div className="font-bold text-slate-700">{item.deptName}</div><div className="text-xs text-gray-400">{item.colName}</div></td>
                                                 <td className="px-6 py-4"><div className="font-medium text-slate-800">{item.name || '(未命名)'}</div><div className="text-xs text-gray-400 inline-block px-1.5 py-0.5 rounded bg-gray-100 mt-1">{item.type}</div></td>
                                                 <td className="px-4 py-4">
-                                                    <div className="font-num text-slate-600">{toROCDateStr(item.meetingDate) || '-'}</div>
-                                                    {meetingStatus === 'warning_source_missing' && <span className="text-red-500 text-xs font-bold flex items-center gap-1 mt-1"><AlertIcon className="w-3 h-3"/> 未設定</span>}
+                                                    <div className={`font-num ${!item.meetingDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.meetingDate) || '未上傳'}</div>
+                                                    {meetingStatus === 'warning_source_missing' && !item.meetingDate && <span className="text-red-500 text-xs font-bold flex items-center gap-1 mt-1"><AlertIcon className="w-3 h-3"/> 缺漏</span>}
                                                 </td>
-                                                <td className="px-4 py-4"><div className="font-num text-slate-600">{toROCDateStr(item.cloudDate) || '-'}</div><div className="mt-1"><TableStatusBadge status={cloudStatus} label="雲端" /></div></td>
-                                                <td className="px-4 py-4"><div className="font-num text-slate-600">{toROCDateStr(item.systemDate) || '-'}</div><div className="mt-1"><TableStatusBadge status={systemStatus} label="系統" /></div></td>
-                                                <td className="px-6 py-4 text-gray-500 text-xs break-words">{item.note || '-'}</td>
+                                                <td className="px-4 py-4"><div className={`font-num ${!item.cloudDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.cloudDate) || '未上傳'}</div><div className="mt-1"><TableStatusBadge status={cloudStatus} label="雲端" /></div></td>
+                                                <td className="px-4 py-4"><div className={`font-num ${!item.systemDate ? 'text-red-500 font-bold' : 'text-slate-600'}`}>{toROCDateStr(item.systemDate) || '未上傳'}</div><div className="mt-1"><TableStatusBadge status={systemStatus} label="系統" /></div></td>
+                                                <td className="px-6 py-4 text-gray-500 text-xs break-words whitespace-pre-wrap">{item.note || '-'}</td>
                                             </tr>
                                         );
                                     })}
@@ -562,14 +559,19 @@
                 rules.forEach(r => {
                     totalItems++;
                     const isMeetingMissing = !r.meetingDate;
-                    const isCloudWarning = checkStatus(r.meetingDate, r.cloudDate) === 'warning';
-                    const isSystemWarning = checkStatus(r.meetingDate, r.systemDate) === 'warning';
+                    const isCloudMissing = !r.cloudDate;
+                    const isSystemMissing = !r.systemDate;
                     
-                    if (isMeetingMissing || isCloudWarning || isSystemWarning) {
+                    const isCloudWarning = r.meetingDate && r.cloudDate && checkStatus(r.meetingDate, r.cloudDate) === 'warning';
+                    const isSystemWarning = r.meetingDate && r.systemDate && checkStatus(r.meetingDate, r.systemDate) === 'warning';
+                    
+                    if (isMeetingMissing || isCloudMissing || isSystemMissing || isCloudWarning || isSystemWarning) {
                         const issues = [];
-                        if (isMeetingMissing) issues.push('校級未設定');
-                        if (isCloudWarning) issues.push('雲端未同步');
-                        if (isSystemWarning) issues.push('系統未同步');
+                        if (isMeetingMissing) issues.push('校級未上傳');
+                        if (isCloudMissing) issues.push('雲端未上傳');
+                        if (isSystemMissing) issues.push('系統未上傳');
+                        if (isCloudWarning) issues.push('雲端日期過舊');
+                        if (isSystemWarning) issues.push('系統日期過舊');
                         
                         warningItems.push({
                             college: col.name,
@@ -707,7 +709,7 @@
                                 <div key={col.id} className="group relative flex items-center mb-1">
                                     <button onClick={() => setActiveTab(col.id)} className={`flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${activeTab === col.id ? 'bg-gray-100 text-gray-900 font-bold' : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'}`}>
                                         <span className="truncate flex-1 text-left">{col.name}</span>
-                                        {col.departments.some(d => [...d.committeeRules, ...d.internshipRules].some(r => !r.meetingDate || checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && <span className="w-2 h-2 bg-red-500 rounded-full shadow-sm"></span>}
+                                        {col.departments.some(d => [...d.committeeRules, ...d.internshipRules].some(r => !r.meetingDate || !r.cloudDate || !r.systemDate || checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && <span className="w-2 h-2 bg-red-500 rounded-full shadow-sm"></span>}
                                     </button>
                                 </div>
                             ))}
@@ -721,7 +723,7 @@
                             {activeTab === 'dashboard' && <Dashboard data={data} />}
                             {activeTab === 'report' && <ReportView data={data} />}
                             {activeTab !== 'dashboard' && activeTab !== 'report' && activeCollege && (
-                                <div className="max-w-5xl mx-auto animate-fade-in pb-20">
+                                <div className="w-full max-w-[1800px] mx-auto animate-fade-in pb-20 px-4 sm:px-6">
                                     <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
                                         <div className="flex items-center gap-4"><div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center text-blue-600"><ScaleIcon className="w-8 h-8" /></div><div><div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">編輯學院</div><input value={activeCollege.name} onChange={(e) => updateCollege({...activeCollege, name: e.target.value})} className="text-3xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none w-full transition-all" /></div></div>
                                         <button onClick={() => deleteCollege(activeCollege.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition-colors text-sm font-medium flex items-center gap-2"><TrashIcon className="w-4 h-4" /> 刪除學院</button>
