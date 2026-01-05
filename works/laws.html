@@ -1,1 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>各系法規版本控管系統</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- SheetJS (XLSX) for Excel Import/Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- Icons (SVG Components) ---
+        const PlusIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+        );
+        const TrashIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+        );
+        const CheckCircleIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+            </svg>
+        );
+        const ExclamationIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+            </svg>
+        );
+        const SaveIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+        );
+        const UploadIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+        );
+        const HomeIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+            </svg>
+        );
+        const CollegeIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+            </svg>
+        );
+        const MeetingIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0h18M9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
+            </svg>
+        );
+        const CloudIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+        );
+        const ScaleIcon = ({ className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
+            </svg>
+        );
+
+        // --- Helper Functions ---
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        const checkStatus = (sourceDate, targetDate) => {
+            if (!sourceDate || !targetDate) return 'empty';
+            const source = new Date(sourceDate);
+            const target = new Date(targetDate);
+            return target >= source ? 'ok' : 'warning';
+        };
+
+        // --- Initial Data ---
+        // Empty initial data as requested
+        const initialData = [];
+
+        // --- Components ---
+
+        const StatusBadge = ({ status }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs font-mono">--</span>;
+            if (status === 'ok') return (
+                <div className="flex items-center text-green-600 text-xs font-medium bg-green-50 px-2 py-0.5 rounded-full">
+                    <CheckCircleIcon className="w-3.5 h-3.5 mr-1" /> 同步
+                </div>
+            );
+            return (
+                <div className="flex items-center text-red-600 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full animate-pulse">
+                    <ExclamationIcon className="w-3.5 h-3.5 mr-1" /> 需更新
+                </div>
+            );
+        };
+
+        const RegulationRow = ({ reg, onUpdate, onDelete }) => {
+            const cloudStatus = checkStatus(reg.meetingDate, reg.cloudDate);
+            const systemStatus = checkStatus(reg.meetingDate, reg.systemDate);
+
+            return (
+                <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm mb-3 hover:shadow-md transition-all group">
+                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                        <input 
+                            type="text" 
+                            value={reg.name}
+                            onChange={(e) => onUpdate({ ...reg, name: e.target.value })}
+                            className="font-medium text-gray-800 bg-transparent focus:bg-blue-50 border-none rounded px-2 py-1 focus:ring-1 focus:ring-blue-300 focus:outline-none w-full md:w-1/2 transition-colors"
+                            placeholder="輸入名稱..."
+                        />
+                        <button onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" title="刪除">
+                            <TrashIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        
+                        {/* 基準：校級會議 */}
+                        <div className="flex flex-col gap-1">
+                            <label className="flex items-center gap-1 text-blue-700 font-semibold text-xs">
+                                <MeetingIcon className="w-4 h-4" /> 校級會議通過
+                            </label>
+                            <input 
+                                type="date" 
+                                value={reg.meetingDate}
+                                onChange={(e) => onUpdate({ ...reg, meetingDate: e.target.value })}
+                                className="w-full bg-blue-50/50 border border-blue-200 rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 focus:ring-blue-300 outline-none"
+                            />
+                        </div>
+
+                        {/* 比對 1：系雲端 */}
+                        <div className={`flex flex-col gap-1 p-1.5 rounded ${cloudStatus === 'warning' ? 'bg-red-50' : ''}`}>
+                            <div className="flex justify-between items-center">
+                                <label className="flex items-center gap-1 text-gray-600 font-medium text-xs">
+                                    <CloudIcon className="w-4 h-4" /> 系雲端
+                                </label>
+                                <StatusBadge status={cloudStatus} />
+                            </div>
+                            <input 
+                                type="date" 
+                                value={reg.cloudDate}
+                                onChange={(e) => onUpdate({ ...reg, cloudDate: e.target.value })}
+                                className={`w-full bg-white border rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 outline-none ${cloudStatus === 'warning' ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
+                            />
+                        </div>
+
+                        {/* 比對 2：法規系統 */}
+                        <div className={`flex flex-col gap-1 p-1.5 rounded ${systemStatus === 'warning' ? 'bg-red-50' : ''}`}>
+                             <div className="flex justify-between items-center">
+                                <label className="flex items-center gap-1 text-gray-600 font-medium text-xs">
+                                    <ScaleIcon className="w-4 h-4" /> 法規系統
+                                </label>
+                                <StatusBadge status={systemStatus} />
+                            </div>
+                            <input 
+                                type="date" 
+                                value={reg.systemDate}
+                                onChange={(e) => onUpdate({ ...reg, systemDate: e.target.value })}
+                                className={`w-full bg-white border rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 outline-none ${systemStatus === 'warning' ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* 備註 */}
+                    <input 
+                        type="text" 
+                        value={reg.note || ''}
+                        onChange={(e) => onUpdate({ ...reg, note: e.target.value })}
+                        className="mt-2 w-full text-xs text-gray-500 bg-transparent border-none focus:bg-gray-50 rounded px-2 py-1 focus:outline-none placeholder-gray-300"
+                        placeholder="備註..."
+                    />
+                </div>
+            );
+        };
+
+        const RegulationListSection = ({ title, list, onUpdateList, typeColor }) => {
+            const add = () => {
+                const newReg = {
+                    id: generateId(),
+                    name: '新項目',
+                    meetingDate: '',
+                    cloudDate: '',
+                    systemDate: '',
+                    note: ''
+                };
+                onUpdateList([...list, newReg]);
+            };
+
+            const update = (updatedItem) => {
+                onUpdateList(list.map(i => i.id === updatedItem.id ? updatedItem : i));
+            };
+
+            const remove = (id) => {
+                if(!confirm("確定刪除？")) return;
+                onUpdateList(list.filter(i => i.id !== id));
+            };
+
+            return (
+                <div className="flex-1 min-w-[300px]">
+                    <div className={`flex items-center justify-between mb-3 pb-1 border-b-2 ${typeColor}`}>
+                        <h4 className="font-bold text-gray-700 text-sm">{title}</h4>
+                        <button onClick={add} className="text-gray-500 hover:text-blue-600 transition-colors">
+                            <PlusIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="space-y-2">
+                        {list.length === 0 && <div className="text-xs text-gray-400 text-center py-4 bg-gray-50 border border-dashed rounded">無項目</div>}
+                        {list.map(item => (
+                            <RegulationRow key={item.id} reg={item} onUpdate={update} onDelete={() => remove(item.id)} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const DepartmentView = ({ dept, onUpdate, onDelete }) => {
+            return (
+                <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">學系</span>
+                            <input 
+                                value={dept.name} 
+                                onChange={(e) => onUpdate({...dept, name: e.target.value})}
+                                className="text-xl font-bold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none"
+                            />
+                        </div>
+                        <button onClick={onDelete} className="text-gray-400 hover:text-red-500 transition-colors">
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col xl:flex-row gap-6">
+                        <RegulationListSection 
+                            title="委員會設置要點" 
+                            list={dept.committeeRules || []} 
+                            onUpdateList={(newList) => onUpdate({...dept, committeeRules: newList})}
+                            typeColor="border-blue-400"
+                        />
+                        <RegulationListSection 
+                            title="實習辦法" 
+                            list={dept.internshipRules || []} 
+                            onUpdateList={(newList) => onUpdate({...dept, internshipRules: newList})}
+                            typeColor="border-emerald-400"
+                        />
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ data }) => {
+            // Calculate stats
+            let totalItems = 0;
+            let warningItems = [];
+
+            data.forEach(col => {
+                col.departments.forEach(dept => {
+                    const allRules = [...(dept.committeeRules || []), ...(dept.internshipRules || [])];
+                    allRules.forEach(r => {
+                        totalItems++;
+                        const cloudStatus = checkStatus(r.meetingDate, r.cloudDate);
+                        const systemStatus = checkStatus(r.meetingDate, r.systemDate);
+                        
+                        if (cloudStatus === 'warning' || systemStatus === 'warning') {
+                            warningItems.push({
+                                college: col.name,
+                                dept: dept.name,
+                                name: r.name,
+                                issue: [
+                                    cloudStatus === 'warning' ? '雲端未更新' : null,
+                                    systemStatus === 'warning' ? '系統未更新' : null
+                                ].filter(Boolean).join('、')
+                            });
+                        }
+                    });
+                });
+            });
+
+            if (data.length === 0) {
+                 return (
+                    <div className="space-y-6 animate-fade-in text-center py-20">
+                         <div className="bg-white p-10 rounded-xl shadow-sm border border-dashed border-gray-300 inline-block">
+                             <HomeIcon className="w-16 h-16 text-blue-200 mx-auto mb-4" />
+                             <h2 className="text-xl font-bold text-gray-700 mb-2">歡迎使用法規版本控管系統</h2>
+                             <p className="text-gray-500 mb-6">目前尚未建立任何學院資料。</p>
+                             <p className="text-sm text-gray-400">請從左側選單點擊「新增學院」開始建立資料。</p>
+                         </div>
+                    </div>
+                 )
+            }
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <HomeIcon className="w-7 h-7 text-blue-600" />
+                        總表瀏覽
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div className="text-gray-500 text-sm font-medium mb-1">追蹤總項目</div>
+                            <div className="text-4xl font-bold text-gray-800">{totalItems}</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div className="text-gray-500 text-sm font-medium mb-1">狀態良好 (同步)</div>
+                            <div className="text-4xl font-bold text-green-600">{totalItems - warningItems.length}</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div className="text-gray-500 text-sm font-medium mb-1">需更新項目</div>
+                            <div className="text-4xl font-bold text-red-600">{warningItems.length}</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 font-bold text-gray-700">
+                            待處理清單 ({warningItems.length})
+                        </div>
+                        {warningItems.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400">
+                                <CheckCircleIcon className="w-12 h-12 mx-auto mb-2 text-green-200" />
+                                太棒了！目前所有法規皆已同步。
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 text-gray-500">
+                                        <tr>
+                                            <th className="px-6 py-3 font-medium">學院</th>
+                                            <th className="px-6 py-3 font-medium">學系</th>
+                                            <th className="px-6 py-3 font-medium">法規名稱</th>
+                                            <th className="px-6 py-3 font-medium">問題</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {warningItems.map((item, idx) => (
+                                            <tr key={idx} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3">{item.college}</td>
+                                                <td className="px-6 py-3">{item.dept}</td>
+                                                <td className="px-6 py-3 font-medium text-gray-800">{item.name}</td>
+                                                <td className="px-6 py-3 text-red-600 font-bold">{item.issue}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            // Data state
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem('reg_tracker_v2');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        // Basic validation to check if it matches current structure schema roughly
+                        // If it's the old version (without committeeRules), you might want to reset or migrate. 
+                        // For now we assume if parsing works, we try to use it.
+                        return parsed;
+                    } catch(e) {
+                        return initialData;
+                    }
+                }
+                return initialData;
+            });
+
+            // UI state
+            const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or collegeId
+            const [isSidebarOpen, setSidebarOpen] = useState(true); // For mobile responsiveness
+
+            useEffect(() => {
+                localStorage.setItem('reg_tracker_v2', JSON.stringify(data));
+            }, [data]);
+
+            // Handlers
+            const addCollege = () => {
+                const newId = generateId();
+                const newCol = { id: newId, name: '新學院', departments: [] };
+                setData([...data, newCol]);
+                setActiveTab(newId);
+            };
+
+            const updateCollege = (updatedCol) => {
+                setData(data.map(c => c.id === updatedCol.id ? updatedCol : c));
+            };
+
+            const deleteCollege = (id) => {
+                if(!confirm("確定刪除此學院？")) return;
+                setData(data.filter(c => c.id !== id));
+                if(activeTab === id) setActiveTab('dashboard');
+            };
+
+            // Current Active View
+            const activeCollege = data.find(c => c.id === activeTab);
+
+            // XLSX Import
+            const handleFileImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const dataBuffer = evt.target.result;
+                        const workbook = XLSX.read(dataBuffer, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+                        // Reconstruct Data Structure
+                        const newData = [];
+                        const colMap = {}; // Helper to group colleges
+
+                        jsonData.forEach(row => {
+                            // Extract identifiers
+                            const colId = row['學院ID'] || generateId();
+                            const colName = row['學院名稱'] || '未命名學院';
+                            const deptId = row['學系ID'] || generateId();
+                            const deptName = row['學系名稱'] || '未命名學系';
+                            const ruleType = row['法規類型']; // "委員會設置要點" or "實習辦法"
+                            
+                            // 1. Find or Create College
+                            let col = colMap[colId];
+                            if (!col) {
+                                col = { id: colId, name: colName, departments: [] };
+                                colMap[colId] = col;
+                                newData.push(col);
+                            }
+
+                            // 2. Find or Create Department
+                            let dept = col.departments.find(d => d.id === deptId);
+                            if (!dept) {
+                                dept = { id: deptId, name: deptName, committeeRules: [], internshipRules: [] };
+                                col.departments.push(dept);
+                            }
+
+                            // 3. Create Rule Object if Name exists
+                            if (row['法規名稱']) {
+                                const rule = {
+                                    id: row['法規ID'] || generateId(),
+                                    name: row['法規名稱'],
+                                    meetingDate: row['校級會議日期'] || '',
+                                    cloudDate: row['系雲端日期'] || '',
+                                    systemDate: row['法規系統日期'] || '',
+                                    note: row['備註'] || ''
+                                };
+
+                                if (ruleType === '實習辦法') {
+                                    dept.internshipRules.push(rule);
+                                } else {
+                                    dept.committeeRules.push(rule);
+                                }
+                            }
+                        });
+
+                        if (confirm(`將匯入 ${jsonData.length} 筆資料並覆蓋現有內容，確定繼續？`)) {
+                            setData(newData);
+                            alert("匯入成功！");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert("檔案解析失敗，請確認上傳的是有效的 Excel 檔案。");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            // XLSX Export
+            const handleFileExport = () => {
+                const rows = [];
+                
+                // Flatten data structure
+                data.forEach(col => {
+                    col.departments.forEach(dept => {
+                        // Helper to push row
+                        const pushRow = (type, rule) => {
+                            rows.push({
+                                '學院ID': col.id,
+                                '學院名稱': col.name,
+                                '學系ID': dept.id,
+                                '學系名稱': dept.name,
+                                '法規類型': type,
+                                '法規ID': rule.id,
+                                '法規名稱': rule.name,
+                                '校級會議日期': rule.meetingDate,
+                                '系雲端日期': rule.cloudDate,
+                                '法規系統日期': rule.systemDate,
+                                '備註': rule.note
+                            });
+                        };
+
+                        (dept.committeeRules || []).forEach(r => pushRow('委員會設置要點', r));
+                        (dept.internshipRules || []).forEach(r => pushRow('實習辦法', r));
+                    });
+                });
+
+                if (rows.length === 0) {
+                    alert("目前沒有資料可匯出");
+                    return;
+                }
+
+                // Create Worksheet
+                const worksheet = XLSX.utils.json_to_sheet(rows);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "法規版本");
+                
+                // Write File
+                XLSX.writeFile(workbook, `法規版本備份_${new Date().toISOString().split('T')[0]}.xlsx`);
+            }
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-gray-50">
+                    {/* Sidebar */}
+                    <aside className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-gray-200 flex-shrink-0 transition-all duration-300 flex flex-col`}>
+                        <div className="h-16 flex items-center px-6 border-b border-gray-100">
+                            <h1 className="font-bold text-lg text-gray-800 flex items-center gap-2 truncate">
+                                <span className="bg-blue-600 text-white p-1 rounded">
+                                    <ScaleIcon className="w-4 h-4" />
+                                </span>
+                                版本控管系統
+                            </h1>
+                        </div>
+                        
+                        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                            <button 
+                                onClick={() => setActiveTab('dashboard')}
+                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                            >
+                                <HomeIcon className="w-5 h-5" />
+                                總表瀏覽
+                            </button>
+
+                            <div className="pt-4 pb-2 px-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                學院列表
+                            </div>
+                            
+                            {data.length === 0 && (
+                                <div className="px-3 text-xs text-gray-400 italic">尚無資料</div>
+                            )}
+
+                            {data.map(col => (
+                                <button 
+                                    key={col.id}
+                                    onClick={() => setActiveTab(col.id)}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors group ${activeTab === col.id ? 'bg-white border border-gray-200 shadow-sm text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                    <div className="flex items-center gap-3 truncate">
+                                        <CollegeIcon className={`w-5 h-5 ${activeTab === col.id ? 'text-blue-500' : 'text-gray-400'}`} />
+                                        <span className="truncate">{col.name}</span>
+                                    </div>
+                                    {/* Warning Dot if needed */}
+                                    {col.departments.some(d => [...(d.committeeRules||[]), ...(d.internshipRules||[])].some(r => checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && (
+                                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                                    )}
+                                </button>
+                            ))}
+
+                            <button 
+                                onClick={addCollege}
+                                className="w-full flex items-center justify-center gap-2 mt-4 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            >
+                                <PlusIcon className="w-4 h-4" /> 新增學院
+                            </button>
+                        </nav>
+
+                        <div className="p-4 border-t border-gray-100 bg-gray-50">
+                            <div className="flex gap-2 justify-center">
+                                <label className="cursor-pointer p-2 text-gray-500 hover:bg-white hover:shadow-sm rounded transition-all" title="匯入 XLSX">
+                                    <UploadIcon className="w-5 h-5" />
+                                    <input type="file" accept=".xlsx, .xls" onChange={handleFileImport} className="hidden" />
+                                </label>
+                                <button onClick={handleFileExport} className="p-2 text-gray-500 hover:bg-white hover:shadow-sm rounded transition-all" title="匯出 XLSX">
+                                    <SaveIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="text-center mt-2 text-[10px] text-gray-400">
+                                支援 Excel (.xlsx)
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                        {/* Mobile Toggle */}
+                        <div className="h-16 flex items-center px-4 border-b border-gray-200 bg-white lg:hidden">
+                            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+                            {activeTab === 'dashboard' && <Dashboard data={data} />}
+                            
+                            {activeTab !== 'dashboard' && activeCollege && (
+                                <div className="max-w-5xl mx-auto animate-fade-in">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-blue-100 rounded-lg">
+                                                <CollegeIcon className="w-8 h-8 text-blue-600" />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">編輯學院</div>
+                                                <input 
+                                                    value={activeCollege.name}
+                                                    onChange={(e) => updateCollege({...activeCollege, name: e.target.value})}
+                                                    className="text-2xl sm:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => deleteCollege(activeCollege.id)} 
+                                            className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
+                                            title="刪除學院"
+                                        >
+                                            <TrashIcon className="w-6 h-6" />
+                                        </button>
+                                    </div>
+
+                                    {activeCollege.departments.map(dept => (
+                                        <DepartmentView 
+                                            key={dept.id}
+                                            dept={dept}
+                                            onUpdate={(updatedDept) => {
+                                                const newDepts = activeCollege.departments.map(d => d.id === updatedDept.id ? updatedDept : d);
+                                                updateCollege({...activeCollege, departments: newDepts});
+                                            }}
+                                            onDelete={() => {
+                                                if(!confirm("刪除學系？")) return;
+                                                const newDepts = activeCollege.departments.filter(d => d.id !== dept.id);
+                                                updateCollege({...activeCollege, departments: newDepts});
+                                            }}
+                                        />
+                                    ))}
+
+                                    <button 
+                                        onClick={() => {
+                                            const newDept = { 
+                                                id: generateId(), 
+                                                name: '新學系', 
+                                                committeeRules: [], 
+                                                internshipRules: [] 
+                                            };
+                                            updateCollege({...activeCollege, departments: [...activeCollege.departments, newDept]});
+                                        }}
+                                        className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <PlusIcon className="w-5 h-5" /> 新增學系
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
