@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>各系法規版本控管系統</title>
+    <title>各系所法規版本控管系統</title>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -19,27 +19,41 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
         body {
             font-family: 'Noto Sans TC', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+        .font-num {
+            font-family: 'Inter', sans-serif;
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
         }
         ::-webkit-scrollbar-track {
             background: transparent; 
         }
         ::-webkit-scrollbar-thumb {
             background: #cbd5e1; 
-            border-radius: 3px;
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8; 
+        }
+        
+        .group:hover .group-hover-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Soft card transitions */
+        .card-transition {
+            transition: all 0.2s ease-in-out;
         }
     </style>
 </head>
@@ -50,61 +64,26 @@
         const { useState, useEffect, useMemo } = React;
 
         // --- Icons (SVG Components) ---
-        const PlusIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-        );
-        const TrashIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
-        );
-        const CheckCircleIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
-            </svg>
-        );
-        const ExclamationIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-            </svg>
-        );
-        const SaveIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
-        );
-        const UploadIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
-        );
-        const HomeIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-            </svg>
-        );
-        const CollegeIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
-            </svg>
-        );
-        const MeetingIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0h18M9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
-            </svg>
-        );
-        const CloudIcon = ({ className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-            </svg>
-        );
         const ScaleIcon = ({ className }) => (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.989 5.989 0 01-2.031.352 5.989 5.989 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
             </svg>
         );
+
+        const PlusIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>;
+        const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>;
+        const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>;
+        const AlertIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>;
+        const SaveIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>;
+        const UploadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>;
+        const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>;
+        const ArrowUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>;
+        const ArrowDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" /></svg>;
+        const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>;
+        const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /></svg>;
+        const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+        const TableIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 0h-7.5m-3.75 0H3.375m13.5 0H16.5m-13.125-9h17.25c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125h-17.25c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125z" /></svg>;
+
 
         // --- Helper Functions ---
         const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
@@ -115,22 +94,76 @@
             return target >= source ? 'ok' : 'warning';
         };
 
-        // --- Initial Data ---
-        // Empty initial data as requested
         const initialData = [];
 
         // --- Components ---
 
         const StatusBadge = ({ status }) => {
-            if (status === 'empty') return <span className="text-gray-400 text-xs font-mono">--</span>;
+            if (status === 'empty') return <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">未同步</span>;
             if (status === 'ok') return (
-                <div className="flex items-center text-green-600 text-xs font-medium bg-green-50 px-2 py-0.5 rounded-full">
-                    <CheckCircleIcon className="w-3.5 h-3.5 mr-1" /> 同步
+                <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                    <CheckIcon className="w-3.5 h-3.5 mr-1" /> 同步
                 </div>
             );
             return (
-                <div className="flex items-center text-red-600 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full animate-pulse">
-                    <ExclamationIcon className="w-3.5 h-3.5 mr-1" /> 需更新
+                <div className="flex items-center text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                    <AlertIcon className="w-3.5 h-3.5 mr-1" /> 需更新
+                </div>
+            );
+        };
+
+        const TableStatusBadge = ({ status, label }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs">-</span>;
+            if (status === 'ok') return <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><CheckIcon className="w-3 h-3"/> {label}</span>;
+            return <span className="text-red-500 text-xs font-bold flex items-center gap-1"><AlertIcon className="w-3 h-3"/> 需更新</span>;
+        }
+
+        // Date Input
+        const DateInput = ({ label, dateValue, onChange, status }) => {
+            const handleClear = (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // 關鍵修正：防止點擊穿透或觸發其他事件
+                onChange('');
+            };
+            
+            let statusClass = "bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100";
+            if (status === 'warning') statusClass = "bg-red-50/30 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
+            if (status === 'ok') statusClass = "bg-emerald-50/30 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
+
+            return (
+                <div className={`p-3 rounded-xl border transition-all ${statusClass} flex flex-col gap-1 relative group`}>
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">{label}</span>
+                        {status && <StatusBadge status={status} />}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        {/* 修正：Input 永遠顯示，不再被隱藏，確保可以隨時點擊設定 */}
+                        <input 
+                            type="date" 
+                            value={dateValue || ''}
+                            onChange={(e) => onChange(e.target.value)}
+                            className="w-full bg-transparent text-sm font-num text-gray-700 outline-none p-0 cursor-pointer"
+                        />
+                        
+                        {/* 當有日期時，顯示清除按鈕 */}
+                        {dateValue && (
+                            <button 
+                                onClick={handleClear}
+                                title="清除日期 (設為未上傳)"
+                                className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                            >
+                                <XCircleIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                        
+                        {/* 僅作視覺提示，不影響 Input 運作 */}
+                        {!dateValue && (
+                            <span className="text-[10px] text-gray-400 italic absolute right-3 pointer-events-none">
+                                未設定
+                            </span>
+                        )}
+                    </div>
                 </div>
             );
         };
@@ -140,85 +173,65 @@
             const systemStatus = checkStatus(reg.meetingDate, reg.systemDate);
 
             return (
-                <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm mb-3 hover:shadow-md transition-all group">
-                    <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                <div className="bg-white border border-gray-100 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md transition-shadow card-transition">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4 pb-3 border-b border-gray-100">
                         <input 
                             type="text" 
                             value={reg.name}
                             onChange={(e) => onUpdate({ ...reg, name: e.target.value })}
-                            className="font-medium text-gray-800 bg-transparent focus:bg-blue-50 border-none rounded px-2 py-1 focus:ring-1 focus:ring-blue-300 focus:outline-none w-full md:w-1/2 transition-colors"
-                            placeholder="輸入名稱..."
+                            className="font-bold text-gray-700 text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 px-1 py-0.5 outline-none w-full sm:w-2/3 transition-colors rounded-md"
+                            placeholder="輸入法規名稱..."
                         />
-                        <button onClick={onDelete} className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" title="刪除">
-                            <TrashIcon className="w-4 h-4" />
+                        <button onClick={onDelete} className="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-red-50">
+                            <TrashIcon className="w-4 h-4" /> 刪除
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                        
-                        {/* 基準：校級會議 */}
-                        <div className="flex flex-col gap-1">
-                            <label className="flex items-center gap-1 text-blue-700 font-semibold text-xs">
-                                <MeetingIcon className="w-4 h-4" /> 校級會議通過
-                            </label>
-                            <input 
-                                type="date" 
-                                value={reg.meetingDate}
-                                onChange={(e) => onUpdate({ ...reg, meetingDate: e.target.value })}
-                                className="w-full bg-blue-50/50 border border-blue-200 rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 focus:ring-blue-300 outline-none"
-                            />
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                        {/* 1. 校級會議 (基準) */}
+                        <DateInput 
+                            label="校級會議通過"
+                            dateValue={reg.meetingDate}
+                            onChange={(val) => onUpdate({ ...reg, meetingDate: val })}
+                        />
 
-                        {/* 比對 1：系雲端 */}
-                        <div className={`flex flex-col gap-1 p-1.5 rounded ${cloudStatus === 'warning' ? 'bg-red-50' : ''}`}>
-                            <div className="flex justify-between items-center">
-                                <label className="flex items-center gap-1 text-gray-600 font-medium text-xs">
-                                    <CloudIcon className="w-4 h-4" /> 系雲端
-                                </label>
-                                <StatusBadge status={cloudStatus} />
-                            </div>
-                            <input 
-                                type="date" 
-                                value={reg.cloudDate}
-                                onChange={(e) => onUpdate({ ...reg, cloudDate: e.target.value })}
-                                className={`w-full bg-white border rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 outline-none ${cloudStatus === 'warning' ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
-                            />
-                        </div>
+                        {/* 2. 系雲端 (比對) */}
+                        <DateInput 
+                            label="系網雲端"
+                            dateValue={reg.cloudDate}
+                            status={cloudStatus}
+                            onChange={(val) => onUpdate({ ...reg, cloudDate: val })}
+                        />
 
-                        {/* 比對 2：法規系統 */}
-                        <div className={`flex flex-col gap-1 p-1.5 rounded ${systemStatus === 'warning' ? 'bg-red-50' : ''}`}>
-                             <div className="flex justify-between items-center">
-                                <label className="flex items-center gap-1 text-gray-600 font-medium text-xs">
-                                    <ScaleIcon className="w-4 h-4" /> 法規系統
-                                </label>
-                                <StatusBadge status={systemStatus} />
-                            </div>
-                            <input 
-                                type="date" 
-                                value={reg.systemDate}
-                                onChange={(e) => onUpdate({ ...reg, systemDate: e.target.value })}
-                                className={`w-full bg-white border rounded px-2 py-1 text-gray-700 text-xs focus:ring-2 outline-none ${systemStatus === 'warning' ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'}`}
-                            />
-                        </div>
+                        {/* 3. 法規系統 (比對) */}
+                        <DateInput 
+                            label="法規系統"
+                            dateValue={reg.systemDate}
+                            status={systemStatus}
+                            onChange={(val) => onUpdate({ ...reg, systemDate: val })}
+                        />
                     </div>
                     
                     {/* 備註 */}
-                    <input 
-                        type="text" 
-                        value={reg.note || ''}
-                        onChange={(e) => onUpdate({ ...reg, note: e.target.value })}
-                        className="mt-2 w-full text-xs text-gray-500 bg-transparent border-none focus:bg-gray-50 rounded px-2 py-1 focus:outline-none placeholder-gray-300"
-                        placeholder="備註..."
-                    />
+                    <div className="flex items-center gap-3 mt-2 px-1">
+                        <span className="text-xs font-medium text-gray-400">備註</span>
+                        <input 
+                            type="text" 
+                            value={reg.note || ''}
+                            onChange={(e) => onUpdate({ ...reg, note: e.target.value })}
+                            className="flex-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-300 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all"
+                            placeholder="點擊輸入備註..."
+                        />
+                    </div>
                 </div>
             );
         };
 
-        const RegulationListSection = ({ title, list, onUpdateList, typeColor }) => {
+        const RegulationListSection = ({ title, list, onUpdateList, badgeColor }) => {
             const add = () => {
                 const newReg = {
                     id: generateId(),
-                    name: '新項目',
+                    name: '',
                     meetingDate: '',
                     cloudDate: '',
                     systemDate: '',
@@ -237,15 +250,25 @@
             };
 
             return (
-                <div className="flex-1 min-w-[300px]">
-                    <div className={`flex items-center justify-between mb-3 pb-1 border-b-2 ${typeColor}`}>
-                        <h4 className="font-bold text-gray-700 text-sm">{title}</h4>
-                        <button onClick={add} className="text-gray-500 hover:text-blue-600 transition-colors">
-                            <PlusIcon className="w-5 h-5" />
+                <div className="flex-1 min-w-[300px] flex flex-col">
+                    <div className="flex items-center justify-between mb-4 pl-1">
+                        <h4 className="font-bold text-gray-700 text-sm tracking-wide flex items-center gap-2">
+                            {title}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-num text-white ${badgeColor}`}>{list.length}</span>
+                        </h4>
+                        <button 
+                            onClick={add} 
+                            className="text-blue-500 hover:text-white hover:bg-blue-500 border border-blue-200 hover:border-blue-500 text-xs px-3 py-1.5 rounded-full transition-all flex items-center gap-1 shadow-sm"
+                        >
+                            <PlusIcon className="w-3 h-3" /> 新增項目
                         </button>
                     </div>
-                    <div className="space-y-2">
-                        {list.length === 0 && <div className="text-xs text-gray-400 text-center py-4 bg-gray-50 border border-dashed rounded">無項目</div>}
+                    <div className="space-y-4">
+                        {list.length === 0 && (
+                            <div className="text-sm text-gray-400 text-center py-10 bg-gray-50/50 border border-dashed border-gray-200 rounded-xl">
+                                尚無項目，請點擊新增
+                            </div>
+                        )}
                         {list.map(item => (
                             <RegulationRow key={item.id} reg={item} onUpdate={update} onDelete={() => remove(item.id)} />
                         ))}
@@ -254,43 +277,188 @@
             );
         };
 
-        const DepartmentView = ({ dept, onUpdate, onDelete }) => {
+        const DepartmentView = ({ dept, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast }) => {
+            const [isCollapsed, setIsCollapsed] = useState(false);
+            
+            // Calculate summary for collapsed view
+            const totalRules = (dept.committeeRules?.length || 0) + (dept.internshipRules?.length || 0);
+            const warnings = [...(dept.committeeRules || []), ...(dept.internshipRules || [])].filter(r => 
+                checkStatus(r.meetingDate, r.cloudDate) === 'warning' || 
+                checkStatus(r.meetingDate, r.systemDate) === 'warning'
+            ).length;
+
             return (
-                <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6 shadow-sm">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">學系</span>
-                            <input 
-                                value={dept.name} 
-                                onChange={(e) => onUpdate({...dept, name: e.target.value})}
-                                className="text-xl font-bold text-gray-800 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none"
-                            />
+                <div className="bg-white border border-gray-200 mb-6 shadow-sm hover:shadow-md transition-all rounded-2xl overflow-hidden">
+                    {/* Header / Click to Collapse */}
+                    <div 
+                        className="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                    >
+                        <div className="flex items-center gap-4 flex-1">
+                            <button className="text-gray-400 hover:text-blue-500 transition-colors">
+                                {isCollapsed ? <ChevronDownIcon className="w-5 h-5" /> : <ChevronUpIcon className="w-5 h-5" />}
+                            </button>
+                            
+                            <div className="flex items-center gap-3 flex-1" onClick={(e) => e.stopPropagation()}>
+                                <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-md font-bold tracking-wider">學系</span>
+                                <input 
+                                    value={dept.name} 
+                                    onChange={(e) => onUpdate({...dept, name: e.target.value})}
+                                    className="text-lg font-bold text-slate-700 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-400 focus:outline-none transition-colors"
+                                />
+                            </div>
+
+                            {/* Summary Badges (Visible when collapsed or expanded) */}
+                            <div className="flex gap-2">
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-num">共 {totalRules} 項</span>
+                                {warnings > 0 && (
+                                    <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-bold flex items-center gap-1">
+                                        <AlertIcon className="w-3 h-3" /> {warnings} 需更新
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        <button onClick={onDelete} className="text-gray-400 hover:text-red-500 transition-colors">
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
+
+                        <div className="flex items-center gap-1 ml-4" onClick={(e) => e.stopPropagation()}>
+                             <button 
+                                onClick={onMoveUp} 
+                                disabled={isFirst}
+                                className={`p-2 rounded-full transition-colors ${isFirst ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:bg-blue-50 hover:text-blue-600'}`}
+                                title="上移"
+                            >
+                                <ArrowUpIcon className="w-4 h-4" />
+                            </button>
+                            <button 
+                                onClick={onMoveDown} 
+                                disabled={isLast}
+                                className={`p-2 rounded-full transition-colors ${isLast ? 'text-gray-200 cursor-not-allowed' : 'text-gray-400 hover:bg-blue-50 hover:text-blue-600'}`}
+                                title="下移"
+                            >
+                                <ArrowDownIcon className="w-4 h-4" />
+                            </button>
+                            <div className="w-px h-4 bg-gray-200 mx-2"></div>
+                            <button onClick={onDelete} className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors" title="刪除學系">
+                                <TrashIcon className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col xl:flex-row gap-6">
-                        <RegulationListSection 
-                            title="委員會設置要點" 
-                            list={dept.committeeRules || []} 
-                            onUpdateList={(newList) => onUpdate({...dept, committeeRules: newList})}
-                            typeColor="border-blue-400"
-                        />
-                        <RegulationListSection 
-                            title="實習辦法" 
-                            list={dept.internshipRules || []} 
-                            onUpdateList={(newList) => onUpdate({...dept, internshipRules: newList})}
-                            typeColor="border-emerald-400"
-                        />
+                    {/* Content */}
+                    {!isCollapsed && (
+                        <div className="p-6 bg-slate-50/50 flex flex-col xl:flex-row gap-8 animate-fade-in">
+                            <RegulationListSection 
+                                title="委員會設置要點" 
+                                list={dept.committeeRules || []} 
+                                onUpdateList={(newList) => onUpdate({...dept, committeeRules: newList})}
+                                badgeColor="bg-blue-400"
+                            />
+                            <div className="hidden xl:block w-px bg-gray-200"></div>
+                            <RegulationListSection 
+                                title="實習辦法" 
+                                list={dept.internshipRules || []} 
+                                onUpdateList={(newList) => onUpdate({...dept, internshipRules: newList})}
+                                badgeColor="bg-emerald-400"
+                            />
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- New: Report View Component ---
+        const ReportView = ({ data }) => {
+            const allItems = useMemo(() => {
+                const items = [];
+                data.forEach(col => {
+                    col.departments.forEach(dept => {
+                        const pushItem = (type, reg) => {
+                             items.push({
+                                colName: col.name,
+                                deptName: dept.name,
+                                type: type,
+                                ...reg
+                             });
+                        };
+                        (dept.committeeRules || []).forEach(r => pushItem('委員會設置要點', r));
+                        (dept.internshipRules || []).forEach(r => pushItem('實習辦法', r));
+                    });
+                });
+                return items;
+            }, [data]);
+
+            if (allItems.length === 0) {
+                 return (
+                    <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] text-center">
+                        <div className="text-gray-400 mb-2">尚無資料</div>
+                        <p className="text-xs text-gray-400">請先新增學院與學系資料</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="animate-fade-in max-w-7xl mx-auto pb-20">
+                    <header className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold text-slate-700 flex items-center gap-3">
+                            <span className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><TableIcon className="w-6 h-6" /></span>
+                            詳細報表
+                        </h2>
+                        <div className="text-sm text-gray-500 font-num">共 {allItems.length} 筆資料</div>
+                    </header>
+
+                    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-6 py-4 whitespace-nowrap">學院/學系</th>
+                                        <th className="px-6 py-4 whitespace-nowrap">類別/法規名稱</th>
+                                        <th className="px-4 py-4 whitespace-nowrap">校級會議</th>
+                                        <th className="px-4 py-4 whitespace-nowrap">系網雲端</th>
+                                        <th className="px-4 py-4 whitespace-nowrap">法規系統</th>
+                                        <th className="px-6 py-4 min-w-[200px]">備註</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {allItems.map((item, idx) => {
+                                        const cloudStatus = checkStatus(item.meetingDate, item.cloudDate);
+                                        const systemStatus = checkStatus(item.meetingDate, item.systemDate);
+                                        
+                                        return (
+                                            <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-slate-700">{item.deptName}</div>
+                                                    <div className="text-xs text-gray-400">{item.colName}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-slate-800">{item.name || '(未命名)'}</div>
+                                                    <div className="text-xs text-gray-400 inline-block px-1.5 py-0.5 rounded bg-gray-100 mt-1">{item.type}</div>
+                                                </td>
+                                                <td className="px-4 py-4 font-num text-slate-600">
+                                                    {item.meetingDate || '-'}
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <div className="font-num mb-1 text-slate-600">{item.cloudDate || '-'}</div>
+                                                    <TableStatusBadge status={cloudStatus} label="雲端" />
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <div className="font-num mb-1 text-slate-600">{item.systemDate || '-'}</div>
+                                                    <TableStatusBadge status={systemStatus} label="系統" />
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-500 text-xs break-words">
+                                                    {item.note || '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             );
         };
 
         const Dashboard = ({ data }) => {
-            // Calculate stats
             let totalItems = 0;
             let warningItems = [];
 
@@ -319,66 +487,83 @@
 
             if (data.length === 0) {
                  return (
-                    <div className="space-y-6 animate-fade-in text-center py-20">
-                         <div className="bg-white p-10 rounded-xl shadow-sm border border-dashed border-gray-300 inline-block">
-                             <HomeIcon className="w-16 h-16 text-blue-200 mx-auto mb-4" />
-                             <h2 className="text-xl font-bold text-gray-700 mb-2">歡迎使用法規版本控管系統</h2>
-                             <p className="text-gray-500 mb-6">目前尚未建立任何學院資料。</p>
-                             <p className="text-sm text-gray-400">請從左側選單點擊「新增學院」開始建立資料。</p>
+                    <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] text-center">
+                         <div className="bg-white p-12 rounded-2xl border border-gray-100 shadow-xl shadow-blue-50 max-w-md">
+                             <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-400">
+                                <HomeIcon className="w-10 h-10" />
+                             </div>
+                             <h2 className="text-xl font-bold text-slate-700 mb-3">歡迎使用法規版本控管系統</h2>
+                             <p className="text-slate-400 mb-8 text-sm leading-relaxed">目前尚未建立任何資料。<br/>請使用左側選單的「新增學院」按鈕開始。</p>
                          </div>
                     </div>
                  )
             }
 
             return (
-                <div className="space-y-6 animate-fade-in">
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <HomeIcon className="w-7 h-7 text-blue-600" />
-                        總表瀏覽
-                    </h2>
+                <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
+                    <header className="flex items-center justify-between pb-2">
+                        <h2 className="text-2xl font-bold text-slate-700 flex items-center gap-3">
+                            總表儀表板
+                        </h2>
+                        <div className="text-sm text-gray-400 font-num bg-white px-3 py-1 rounded-full shadow-sm border border-gray-100">
+                            最後更新: {new Date().toLocaleDateString()}
+                        </div>
+                    </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <div className="text-gray-500 text-sm font-medium mb-1">追蹤總項目</div>
-                            <div className="text-4xl font-bold text-gray-800">{totalItems}</div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">追蹤總項目</div>
+                            <div className="text-4xl font-bold text-slate-700 font-num">{totalItems}</div>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <div className="text-gray-500 text-sm font-medium mb-1">狀態良好 (同步)</div>
-                            <div className="text-4xl font-bold text-green-600">{totalItems - warningItems.length}</div>
+                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-emerald-500 text-xs font-bold uppercase tracking-wider mb-2">狀態同步</div>
+                            <div className="text-4xl font-bold text-emerald-500 font-num">{totalItems - warningItems.length}</div>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                            <div className="text-gray-500 text-sm font-medium mb-1">需更新項目</div>
-                            <div className="text-4xl font-bold text-red-600">{warningItems.length}</div>
+                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-red-500 text-xs font-bold uppercase tracking-wider mb-2">需更新項目</div>
+                            <div className="text-4xl font-bold text-red-500 font-num">{warningItems.length}</div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 font-bold text-gray-700">
-                            待處理清單 ({warningItems.length})
+                    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                        <div className="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <h3 className="font-bold text-slate-600 flex items-center gap-2">
+                                <AlertIcon className="w-5 h-5 text-red-400" />
+                                待處理清單
+                            </h3>
+                            <span className="bg-red-100 text-red-600 text-xs font-bold px-2.5 py-1 rounded-full">{warningItems.length}</span>
                         </div>
                         {warningItems.length === 0 ? (
-                            <div className="p-8 text-center text-gray-400">
-                                <CheckCircleIcon className="w-12 h-12 mx-auto mb-2 text-green-200" />
-                                太棒了！目前所有法規皆已同步。
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-400">
+                                    <CheckIcon className="w-8 h-8" />
+                                </div>
+                                <h4 className="text-lg font-bold text-slate-600">太棒了！</h4>
+                                <p className="text-slate-400 mt-1">目前所有法規版本皆已同步。</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 text-gray-500">
+                                    <thead className="bg-gray-50/50 text-gray-400 uppercase text-[11px] tracking-wider border-b border-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 font-medium">學院</th>
-                                            <th className="px-6 py-3 font-medium">學系</th>
-                                            <th className="px-6 py-3 font-medium">法規名稱</th>
-                                            <th className="px-6 py-3 font-medium">問題</th>
+                                            <th className="px-6 py-3 font-semibold pl-8">學院 / 學系</th>
+                                            <th className="px-6 py-3 font-semibold">法規名稱</th>
+                                            <th className="px-6 py-3 font-semibold">問題描述</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-gray-50">
                                         {warningItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50">
-                                                <td className="px-6 py-3">{item.college}</td>
-                                                <td className="px-6 py-3">{item.dept}</td>
-                                                <td className="px-6 py-3 font-medium text-gray-800">{item.name}</td>
-                                                <td className="px-6 py-3 text-red-600 font-bold">{item.issue}</td>
+                                            <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                                                <td className="px-6 py-4 pl-8">
+                                                    <div className="font-bold text-slate-700">{item.dept}</div>
+                                                    <div className="text-xs text-gray-400">{item.college}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-medium text-slate-600">{item.name}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="inline-flex items-center gap-1 text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100 text-xs font-bold">
+                                                        <AlertIcon className="w-3 h-3" /> {item.issue}
+                                                    </span>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -391,32 +576,21 @@
         };
 
         const App = () => {
-            // Data state
             const [data, setData] = useState(() => {
-                const saved = localStorage.getItem('reg_tracker_v2');
+                const saved = localStorage.getItem('reg_tracker_v3');
                 if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        // Basic validation to check if it matches current structure schema roughly
-                        // If it's the old version (without committeeRules), you might want to reset or migrate. 
-                        // For now we assume if parsing works, we try to use it.
-                        return parsed;
-                    } catch(e) {
-                        return initialData;
-                    }
+                    try { return JSON.parse(saved); } catch(e) { return initialData; }
                 }
                 return initialData;
             });
 
-            // UI state
-            const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or collegeId
-            const [isSidebarOpen, setSidebarOpen] = useState(true); // For mobile responsiveness
+            const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'report', or collegeId
+            const [isSidebarOpen, setSidebarOpen] = useState(true);
 
             useEffect(() => {
-                localStorage.setItem('reg_tracker_v2', JSON.stringify(data));
+                localStorage.setItem('reg_tracker_v3', JSON.stringify(data));
             }, [data]);
 
-            // Handlers
             const addCollege = () => {
                 const newId = generateId();
                 const newCol = { id: newId, name: '新學院', departments: [] };
@@ -429,56 +603,56 @@
             };
 
             const deleteCollege = (id) => {
-                if(!confirm("確定刪除此學院？")) return;
+                if(!confirm("確定刪除此學院？資料將無法復原。")) return;
                 setData(data.filter(c => c.id !== id));
                 if(activeTab === id) setActiveTab('dashboard');
             };
 
-            // Current Active View
+            const moveCollege = (index, direction, e) => {
+                e.stopPropagation(); // Prevent tab switching
+                const newData = [...data];
+                const targetIndex = index + direction;
+                if (targetIndex < 0 || targetIndex >= newData.length) return;
+                
+                [newData[index], newData[targetIndex]] = [newData[targetIndex], newData[index]];
+                setData(newData);
+            };
+
+            const moveDepartment = (collegeId, deptIndex, direction) => {
+                const colIndex = data.findIndex(c => c.id === collegeId);
+                if(colIndex === -1) return;
+
+                const col = data[colIndex];
+                const newDepts = [...col.departments];
+                const targetIndex = deptIndex + direction;
+                
+                if (targetIndex < 0 || targetIndex >= newDepts.length) return;
+                
+                [newDepts[deptIndex], newDepts[targetIndex]] = [newDepts[targetIndex], newDepts[deptIndex]];
+                
+                const newCol = { ...col, departments: newDepts };
+                updateCollege(newCol);
+            };
+
             const activeCollege = data.find(c => c.id === activeTab);
 
-            // XLSX Import
             const handleFileImport = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
                 reader.onload = (evt) => {
                     try {
-                        const dataBuffer = evt.target.result;
-                        const workbook = XLSX.read(dataBuffer, { type: 'array' });
-                        const sheetName = workbook.SheetNames[0];
-                        const sheet = workbook.Sheets[sheetName];
-                        const jsonData = XLSX.utils.sheet_to_json(sheet);
-
-                        // Reconstruct Data Structure
+                        const workbook = XLSX.read(evt.target.result, { type: 'array' });
+                        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                         const newData = [];
-                        const colMap = {}; // Helper to group colleges
-
+                        const colMap = {};
                         jsonData.forEach(row => {
-                            // Extract identifiers
                             const colId = row['學院ID'] || generateId();
-                            const colName = row['學院名稱'] || '未命名學院';
-                            const deptId = row['學系ID'] || generateId();
-                            const deptName = row['學系名稱'] || '未命名學系';
-                            const ruleType = row['法規類型']; // "委員會設置要點" or "實習辦法"
-                            
-                            // 1. Find or Create College
                             let col = colMap[colId];
-                            if (!col) {
-                                col = { id: colId, name: colName, departments: [] };
-                                colMap[colId] = col;
-                                newData.push(col);
-                            }
-
-                            // 2. Find or Create Department
+                            if (!col) { col = { id: colId, name: row['學院名稱'] || '未命名', departments: [] }; colMap[colId] = col; newData.push(col); }
+                            const deptId = row['學系ID'] || generateId();
                             let dept = col.departments.find(d => d.id === deptId);
-                            if (!dept) {
-                                dept = { id: deptId, name: deptName, committeeRules: [], internshipRules: [] };
-                                col.departments.push(dept);
-                            }
-
-                            // 3. Create Rule Object if Name exists
+                            if (!dept) { dept = { id: deptId, name: row['學系名稱'] || '未命名', committeeRules: [], internshipRules: [] }; col.departments.push(dept); }
                             if (row['法規名稱']) {
                                 const rule = {
                                     id: row['法規ID'] || generateId(),
@@ -488,209 +662,188 @@
                                     systemDate: row['法規系統日期'] || '',
                                     note: row['備註'] || ''
                                 };
-
-                                if (ruleType === '實習辦法') {
-                                    dept.internshipRules.push(rule);
-                                } else {
-                                    dept.committeeRules.push(rule);
-                                }
+                                row['法規類型'] === '實習辦法' ? dept.internshipRules.push(rule) : dept.committeeRules.push(rule);
                             }
                         });
-
-                        if (confirm(`將匯入 ${jsonData.length} 筆資料並覆蓋現有內容，確定繼續？`)) {
-                            setData(newData);
-                            alert("匯入成功！");
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        alert("檔案解析失敗，請確認上傳的是有效的 Excel 檔案。");
-                    }
+                        if (confirm(`匯入將覆蓋現有資料，確定？`)) setData(newData);
+                    } catch (err) { alert("匯入失敗"); }
                 };
                 reader.readAsArrayBuffer(file);
             };
 
-            // XLSX Export
             const handleFileExport = () => {
                 const rows = [];
-                
-                // Flatten data structure
-                data.forEach(col => {
-                    col.departments.forEach(dept => {
-                        // Helper to push row
-                        const pushRow = (type, rule) => {
-                            rows.push({
-                                '學院ID': col.id,
-                                '學院名稱': col.name,
-                                '學系ID': dept.id,
-                                '學系名稱': dept.name,
-                                '法規類型': type,
-                                '法規ID': rule.id,
-                                '法規名稱': rule.name,
-                                '校級會議日期': rule.meetingDate,
-                                '系雲端日期': rule.cloudDate,
-                                '法規系統日期': rule.systemDate,
-                                '備註': rule.note
-                            });
-                        };
-
-                        (dept.committeeRules || []).forEach(r => pushRow('委員會設置要點', r));
-                        (dept.internshipRules || []).forEach(r => pushRow('實習辦法', r));
-                    });
-                });
-
-                if (rows.length === 0) {
-                    alert("目前沒有資料可匯出");
-                    return;
-                }
-
-                // Create Worksheet
-                const worksheet = XLSX.utils.json_to_sheet(rows);
-                const workbook = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(workbook, worksheet, "法規版本");
-                
-                // Write File
-                XLSX.writeFile(workbook, `法規版本備份_${new Date().toISOString().split('T')[0]}.xlsx`);
-            }
+                data.forEach(col => col.departments.forEach(dept => {
+                    const push = (t, r) => rows.push({'學院ID':col.id, '學院名稱':col.name, '學系ID':dept.id, '學系名稱':dept.name, '法規類型':t, '法規ID':r.id, '法規名稱':r.name, '校級會議日期':r.meetingDate, '系雲端日期':r.cloudDate, '法規系統日期':r.systemDate, '備註':r.note});
+                    dept.committeeRules.forEach(r => push('委員會設置要點', r));
+                    dept.internshipRules.forEach(r => push('實習辦法', r));
+                }));
+                if(!rows.length) return alert("無資料");
+                XLSX.writeFile(XLSX.utils.book_new(XLSX.utils.json_to_sheet(rows)), `RegTracker_${new Date().toISOString().split('T')[0]}.xlsx`);
+            };
 
             return (
-                <div className="flex h-screen overflow-hidden bg-gray-50">
-                    {/* Sidebar */}
-                    <aside className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-gray-200 flex-shrink-0 transition-all duration-300 flex flex-col`}>
-                        <div className="h-16 flex items-center px-6 border-b border-gray-100">
-                            <h1 className="font-bold text-lg text-gray-800 flex items-center gap-2 truncate">
-                                <span className="bg-blue-600 text-white p-1 rounded">
-                                    <ScaleIcon className="w-4 h-4" />
-                                </span>
-                                版本控管系統
-                            </h1>
+                <div className="flex h-screen overflow-hidden bg-slate-50">
+                    {/* Sidebar - Light Theme */}
+                    <aside className={`${isSidebarOpen ? 'w-72' : 'w-0'} bg-white border-r border-gray-200 flex-shrink-0 transition-all duration-300 flex flex-col z-20`}>
+                        <div className="h-auto py-6 px-6 bg-white border-b border-gray-100 flex flex-row items-center gap-4">
+                            <div className="bg-blue-600 p-2 rounded-xl shadow-md shadow-blue-200 flex-shrink-0">
+                                <ScaleIcon className="w-8 h-8 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <div className="text-[10px] font-bold text-gray-500 tracking-wide uppercase">
+                                    東海大學實習與學生成就中心
+                                </div>
+                                <h1 className="font-bold text-gray-800 text-lg tracking-wide leading-tight">
+                                    系所法規控管系統
+                                </h1>
+                            </div>
                         </div>
                         
                         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                             <button 
                                 onClick={() => setActiveTab('dashboard')}
-                                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'}`}
                             >
                                 <HomeIcon className="w-5 h-5" />
                                 總表瀏覽
                             </button>
 
-                            <div className="pt-4 pb-2 px-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                學院列表
+                            <button 
+                                onClick={() => setActiveTab('report')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeTab === 'report' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <TableIcon className="w-5 h-5" />
+                                詳細報表
+                            </button>
+
+                            <div className="mt-6 mb-2 px-4 flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">學院管理</span>
                             </div>
                             
-                            {data.length === 0 && (
-                                <div className="px-3 text-xs text-gray-400 italic">尚無資料</div>
-                            )}
-
-                            {data.map(col => (
-                                <button 
-                                    key={col.id}
-                                    onClick={() => setActiveTab(col.id)}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors group ${activeTab === col.id ? 'bg-white border border-gray-200 shadow-sm text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`}
-                                >
-                                    <div className="flex items-center gap-3 truncate">
-                                        <CollegeIcon className={`w-5 h-5 ${activeTab === col.id ? 'text-blue-500' : 'text-gray-400'}`} />
-                                        <span className="truncate">{col.name}</span>
+                            {data.map((col, idx) => (
+                                <div key={col.id} className="group relative flex items-center mb-1">
+                                    <button 
+                                        onClick={() => setActiveTab(col.id)}
+                                        className={`flex-1 flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${activeTab === col.id ? 'bg-gray-100 text-gray-900 font-bold' : 'hover:bg-gray-50 text-gray-500 hover:text-gray-900'}`}
+                                    >
+                                        <span className="truncate flex-1 text-left">{col.name}</span>
+                                        {col.departments.some(d => [...d.committeeRules, ...d.internshipRules].some(r => checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && (
+                                            <span className="w-2 h-2 bg-red-500 rounded-full shadow-sm"></span>
+                                        )}
+                                    </button>
+                                    
+                                    {/* Sort Controls - Clean Look */}
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/80 backdrop-blur-sm p-1 rounded-md border border-gray-200 shadow-sm">
+                                        <button 
+                                            onClick={(e) => moveCollege(idx, -1, e)} 
+                                            disabled={idx === 0}
+                                            className={`p-1 rounded hover:bg-gray-100 ${idx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600'}`}
+                                        >
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                        </button>
+                                        <button 
+                                            onClick={(e) => moveCollege(idx, 1, e)} 
+                                            disabled={idx === data.length - 1}
+                                            className={`p-1 rounded hover:bg-gray-100 ${idx === data.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600'}`}
+                                        >
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </button>
                                     </div>
-                                    {/* Warning Dot if needed */}
-                                    {col.departments.some(d => [...(d.committeeRules||[]), ...(d.internshipRules||[])].some(r => checkStatus(r.meetingDate, r.cloudDate)==='warning' || checkStatus(r.meetingDate, r.systemDate)==='warning')) && (
-                                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                                    )}
-                                </button>
+                                </div>
                             ))}
 
                             <button 
                                 onClick={addCollege}
-                                className="w-full flex items-center justify-center gap-2 mt-4 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                                className="w-full flex items-center justify-center gap-2 mt-6 px-4 py-3 border border-dashed border-gray-300 rounded-xl text-xs text-gray-400 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
                             >
                                 <PlusIcon className="w-4 h-4" /> 新增學院
                             </button>
                         </nav>
 
                         <div className="p-4 border-t border-gray-100 bg-gray-50">
-                            <div className="flex gap-2 justify-center">
-                                <label className="cursor-pointer p-2 text-gray-500 hover:bg-white hover:shadow-sm rounded transition-all" title="匯入 XLSX">
-                                    <UploadIcon className="w-5 h-5" />
-                                    <input type="file" accept=".xlsx, .xls" onChange={handleFileImport} className="hidden" />
+                            <div className="flex gap-3 justify-center">
+                                <label className="cursor-pointer flex-1 bg-white hover:bg-gray-50 text-gray-600 py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all border border-gray-200 shadow-sm">
+                                    <UploadIcon className="w-4 h-4" /> 匯入
+                                    <input type="file" accept=".xlsx" onChange={handleFileImport} className="hidden" />
                                 </label>
-                                <button onClick={handleFileExport} className="p-2 text-gray-500 hover:bg-white hover:shadow-sm rounded transition-all" title="匯出 XLSX">
-                                    <SaveIcon className="w-5 h-5" />
+                                <button onClick={handleFileExport} className="flex-1 bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg text-xs flex items-center justify-center gap-2 transition-all shadow-md">
+                                    <SaveIcon className="w-4 h-4" /> 備份
                                 </button>
-                            </div>
-                            <div className="text-center mt-2 text-[10px] text-gray-400">
-                                支援 Excel (.xlsx)
                             </div>
                         </div>
                     </aside>
 
-                    {/* Main Content */}
-                    <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                        {/* Mobile Toggle */}
-                        <div className="h-16 flex items-center px-4 border-b border-gray-200 bg-white lg:hidden">
-                            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                                </svg>
+                    {/* Main Content Area */}
+                    <main className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-hidden relative">
+                         {/* Mobile Header */}
+                        <div className="h-16 flex items-center px-4 border-b border-gray-100 bg-white lg:hidden">
+                            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 -ml-2 text-gray-500">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
+                        <div className="flex-1 overflow-y-auto p-6 sm:p-10 scroll-smooth">
                             {activeTab === 'dashboard' && <Dashboard data={data} />}
+                            {activeTab === 'report' && <ReportView data={data} />}
                             
-                            {activeTab !== 'dashboard' && activeCollege && (
-                                <div className="max-w-5xl mx-auto animate-fade-in">
-                                    <div className="flex items-center justify-between mb-8">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-blue-100 rounded-lg">
-                                                <CollegeIcon className="w-8 h-8 text-blue-600" />
+                            {activeTab !== 'dashboard' && activeTab !== 'report' && activeCollege && (
+                                <div className="max-w-5xl mx-auto animate-fade-in pb-20">
+                                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-200">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 bg-white border border-gray-100 rounded-2xl shadow-sm flex items-center justify-center text-blue-600">
+                                                <ScaleIcon className="w-8 h-8" />
                                             </div>
                                             <div>
-                                                <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">編輯學院</div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">編輯學院</div>
                                                 <input 
                                                     value={activeCollege.name}
                                                     onChange={(e) => updateCollege({...activeCollege, name: e.target.value})}
-                                                    className="text-2xl sm:text-3xl font-bold text-gray-900 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none w-full"
+                                                    className="text-3xl font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none w-full transition-all"
                                                 />
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => deleteCollege(activeCollege.id)} 
-                                            className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
-                                            title="刪除學院"
+                                            className="text-gray-400 hover:text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition-colors text-sm font-medium flex items-center gap-2"
                                         >
-                                            <TrashIcon className="w-6 h-6" />
+                                            <TrashIcon className="w-4 h-4" /> 刪除學院
                                         </button>
                                     </div>
 
-                                    {activeCollege.departments.map(dept => (
-                                        <DepartmentView 
-                                            key={dept.id}
-                                            dept={dept}
-                                            onUpdate={(updatedDept) => {
-                                                const newDepts = activeCollege.departments.map(d => d.id === updatedDept.id ? updatedDept : d);
-                                                updateCollege({...activeCollege, departments: newDepts});
-                                            }}
-                                            onDelete={() => {
-                                                if(!confirm("刪除學系？")) return;
-                                                const newDepts = activeCollege.departments.filter(d => d.id !== dept.id);
-                                                updateCollege({...activeCollege, departments: newDepts});
-                                            }}
-                                        />
-                                    ))}
+                                    <div className="space-y-6">
+                                        {activeCollege.departments.map((dept, index) => (
+                                            <DepartmentView 
+                                                key={dept.id}
+                                                dept={dept}
+                                                isFirst={index === 0}
+                                                isLast={index === activeCollege.departments.length - 1}
+                                                onMoveUp={() => moveDepartment(activeCollege.id, index, -1)}
+                                                onMoveDown={() => moveDepartment(activeCollege.id, index, 1)}
+                                                onUpdate={(updatedDept) => {
+                                                    const newDepts = activeCollege.departments.map(d => d.id === updatedDept.id ? updatedDept : d);
+                                                    updateCollege({...activeCollege, departments: newDepts});
+                                                }}
+                                                onDelete={() => {
+                                                    if(!confirm("刪除學系？")) return;
+                                                    const newDepts = activeCollege.departments.filter(d => d.id !== dept.id);
+                                                    updateCollege({...activeCollege, departments: newDepts});
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
 
                                     <button 
                                         onClick={() => {
-                                            const newDept = { 
-                                                id: generateId(), 
-                                                name: '新學系', 
-                                                committeeRules: [], 
-                                                internshipRules: [] 
-                                            };
+                                            const newDept = { id: generateId(), name: '新學系', committeeRules: [], internshipRules: [] };
                                             updateCollege({...activeCollege, departments: [...activeCollege.departments, newDept]});
                                         }}
-                                        className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                                        className="w-full py-6 mt-6 border-2 border-dashed border-gray-300 rounded-2xl text-gray-400 font-medium hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all flex items-center justify-center gap-2 group"
                                     >
-                                        <PlusIcon className="w-5 h-5" /> 新增學系
+                                        <div className="p-2 bg-gray-100 group-hover:bg-blue-100 rounded-full transition-colors text-gray-500 group-hover:text-blue-500">
+                                            <PlusIcon className="w-5 h-5" />
+                                        </div>
+                                        新增學系到此學院
                                     </button>
                                 </div>
                             )}
