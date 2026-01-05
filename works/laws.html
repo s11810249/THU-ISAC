@@ -71,7 +71,7 @@
             { label: "⚠️ 名稱修正未送", content: "因系所名稱調整，配合法規名稱修正，惟該名稱修正未送校級委員會備查，未涉及條文實質內容修正。" },
             { label: "⚠️ 僅系/院通過", content: "本法規已於 yyy/mm/dd 經院務會議通過，惟尚未提送校級委員會備查。" },
             { label: "⏳ 送校級備查中", content: "修正草案已於 yyy/mm/dd 經院務會議修正通過，並提送校級委員會備查中。" },
-            { label: "🔴 未上傳系統", content: "本法規尚未上傳至法規系統，相關實習評鑑資料亦未上傳至指定資料上傳空間。" },
+            { label: "🔴 未上傳系統", content: "本法規尚未上傳至法規系統，亦未上傳至指定資料上傳空間。" },
             { label: "🔴 歷次修正未送", content: "本法規曾於 yyy/mm/dd 修正，惟相關修正均未送校級委員會備查。" },
             { label: "🔴 日期未更新", content: "法規系統未同步更新校級委員會備查通過日期，系統登載資訊與實際核定情形不一致。" },
             { label: "⚠️ 通過後未送", content: "本法規已於 yyy/mm/dd 經院務會議通過，惟尚未送校級委員會備查。" },
@@ -397,7 +397,7 @@
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3 relative z-20">
                         <DateInput label="校級會議通過" dateValue={reg.meetingDate} onChange={(val) => onUpdate({ ...reg, meetingDate: val })} status={meetingStatus} />
-                        <DateInput label="系網雲端" dateValue={reg.cloudDate} onChange={(val) => onUpdate({ ...reg, cloudDate: val })} status={cloudStatus} />
+                        <DateInput label="系所雲端" dateValue={reg.cloudDate} onChange={(val) => onUpdate({ ...reg, cloudDate: val })} status={cloudStatus} />
                         <DateInput label="法規系統" dateValue={reg.systemDate} onChange={(val) => onUpdate({ ...reg, systemDate: val })} status={systemStatus} />
                     </div>
                     
@@ -524,7 +524,7 @@
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
-                                    <tr><th className="px-6 py-4">學院/學系</th><th className="px-6 py-4">法規名稱</th><th className="px-4 py-4">校級會議</th><th className="px-4 py-4">系網雲端</th><th className="px-4 py-4">法規系統</th><th className="px-6 py-4">備註</th></tr>
+                                    <tr><th className="px-6 py-4">學院/學系</th><th className="px-6 py-4">法規名稱</th><th className="px-4 py-4">校級會議</th><th className="px-4 py-4">系所雲端</th><th className="px-4 py-4">法規系統</th><th className="px-6 py-4">備註</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {allItems.map((item, idx) => {
