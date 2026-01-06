@@ -301,7 +301,7 @@
             );
         };
 
-        // --- Timeline Component (V17 Perfected - No Italic, Multiline Support) ---
+        // --- Timeline Component (V17 Perfected - Center Aligned via Transform) ---
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
@@ -321,8 +321,10 @@
                     </div>
                     
                     <div className="relative space-y-8 pl-4">
-                        {/* Vertical Line - Fixed at left: 23px to align with center of 20px box-content dot at 14px */}
-                        <div className="absolute left-[23px] top-2 bottom-4 w-[2px] bg-gray-200"></div>
+                        {/* Vertical Line Fix: 
+                           使用 left-6 (24px) 作為中心軸，配合 -translate-x-1/2 強制置中
+                        */}
+                        <div className="absolute left-6 top-2 bottom-4 w-[2px] bg-gray-200 -translate-x-1/2"></div>
 
                         {sortedHistory.map((h, i) => {
                              const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
@@ -340,7 +342,8 @@
 
                                  return (
                                     <div key={h.id} className="relative pl-12">
-                                        <div className={`absolute left-[14px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
+                                        {/* Dot Fix: 同樣使用 left-6 配合 -translate-x-1/2 強制對齊中心軸 */}
+                                        <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                         
                                         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm relative">
                                             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-2">
@@ -350,7 +353,6 @@
                                                 </div>
                                                 {h.univDate && <span className="bg-primary-50 text-primary-700 text-xs px-2 py-1 rounded font-num font-bold">{toROC(h.univDate)}</span>}
                                             </div>
-                                            {/* Modified: Removed italic, added whitespace-pre-wrap */}
                                             {h.note && <div className="text-xs text-gray-500 whitespace-pre-wrap pl-2 border-l-2 border-gray-300">{h.note}</div>}
                                         </div>
                                     </div>
@@ -359,7 +361,6 @@
 
                              // Standard Process View
                              const steps = [];
-                             // Auto-hide Dept level if type is 'none'
                              if (h.deptMeetingType !== 'none') {
                                  steps.push({ key: 'dept', label: '系', suffix: h.deptMeetingType === 'internship' ? '實習委員會' : '務會議', date: h.deptDate });
                              }
@@ -368,8 +369,8 @@
 
                              return (
                                 <div key={h.id} className="relative pl-12">
-                                    {/* Vertical Dot */}
-                                    <div className={`absolute left-[14px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
+                                    {/* Dot Fix: 同樣使用 left-6 配合 -translate-x-1/2 強制對齊中心軸 */}
+                                    <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                     
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 shadow-sm">
                                         <div className="flex justify-between items-center mb-4">
@@ -378,7 +379,7 @@
                                         </div>
 
                                         <div className="flex items-center justify-between relative px-2">
-                                            {/* Horizontal Connector Line - Darker & Correct z-index */}
+                                            {/* Horizontal Connector Line */}
                                             <div className="absolute top-2.5 left-[16%] right-[16%] h-[2px] bg-slate-300 z-0"></div>
                                             
                                             {steps.map((step, idx) => {
@@ -407,7 +408,6 @@
                                             })}
                                         </div>
                                         
-                                        {/* Modified: Removed italic, added whitespace-pre-wrap */}
                                         {h.note && <div className="mt-4 pt-2 border-t border-gray-200 text-xs text-gray-500 whitespace-pre-wrap">{h.note}</div>}
                                     </div>
                                 </div>
@@ -417,7 +417,7 @@
                 </div>
             );
         };
-
+        
         const RegulationRow = ({ reg, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, templates, onManageTemplates }) => {
             const [histOpen, setHistOpen] = useState(false);
             const [noteOpen, setNoteOpen] = useState(false);
