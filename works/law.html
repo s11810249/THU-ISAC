@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系所法規控管系統 Pro V17</title>
+    <title>系所法規控管系統 Pro V18</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -108,7 +108,10 @@
             Edit: (p) => <i className={`fa-solid fa-pen-to-square ${p.className||''}`}></i>,
             Clock: (p) => <i className={`fa-regular fa-clock ${p.className||''}`}></i>,
             Manage: (p) => <i className={`fa-solid fa-gear ${p.className||''}`}></i>,
-            Dot: (p) => <i className={`fa-solid fa-circle ${p.className||''}`}></i>
+            Dot: (p) => <i className={`fa-solid fa-circle ${p.className||''}`}></i>,
+            FileCheck: (p) => <i className={`fa-solid fa-file-circle-check ${p.className||''}`}></i>,
+            ThumbUp: (p) => <i className={`fa-solid fa-thumbs-up ${p.className||''}`}></i>,
+            Wrench: (p) => <i className={`fa-solid fa-screwdriver-wrench ${p.className||''}`}></i>
         };
 
         const DEFAULT_NOTE_TEMPLATES = [
@@ -164,10 +167,19 @@
             );
         };
 
-        const TableStatusBadge = ({ status, label }) => {
-            if (status === 'empty') return <span className="text-gray-400 text-xs">-</span>;
-            if (status === 'ok') return <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><Icons.Check className="text-xs"/> {label}</span>;
-            return <span className="text-red-500 text-xs font-bold flex items-center gap-1"><Icons.Alert className="text-xs"/> 未同步</span>;
+        // --- 查核按鈕元件 (For History) ---
+        const VerificationButton = ({ isVerified, onToggle, label }) => {
+            return (
+                <button 
+                    onClick={onToggle}
+                    className={`flex items-center justify-center p-1.5 rounded-full transition-all border ${isVerified 
+                        ? 'bg-blue-100 text-blue-600 border-blue-200 hover:bg-blue-200' 
+                        : 'bg-gray-100 text-gray-300 border-gray-200 hover:text-gray-400 hover:bg-gray-200'}`}
+                    title={label || "點擊切換會議紀錄確認狀態"}
+                >
+                    <Icons.FileCheck className="text-sm" />
+                </button>
+            );
         };
 
         const CustomROCDatePicker = ({ isOpen, onClose, dateValue, onChange }) => {
@@ -286,7 +298,7 @@
                 document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); 
             }, [onClose, safeAreaRef]);
             return (
-                <div ref={ref} className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-80 max-h-96 overflow-y-auto animate-fade-in right-0 top-full mt-1 flex flex-col">
+                <div ref={ref} className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-80 max-h-96 overflow-y-auto animate-fade-in left-0 top-full mt-1 flex flex-col">
                     <div className="sticky top-0 bg-primary-50 border-b border-gray-100 px-4 py-3 text-xs font-bold text-primary-500 uppercase flex justify-between items-center">
                         <span>選擇備註 (多選)</span>
                         <div className="flex gap-2">
@@ -321,9 +333,7 @@
                     </div>
                     
                     <div className="relative space-y-8 pl-4">
-                        {/* Vertical Line Fix: 
-                           使用 left-6 (24px) 作為中心軸，配合 -translate-x-1/2 強制置中
-                        */}
+                        {/* Vertical Line Fix: 使用 left-6 (24px) 作為中心軸，配合 -translate-x-1/2 強制置中 */}
                         <div className="absolute left-6 top-2 bottom-4 w-[2px] bg-gray-200 -translate-x-1/2"></div>
 
                         {sortedHistory.map((h, i) => {
@@ -342,7 +352,7 @@
 
                                  return (
                                     <div key={h.id} className="relative pl-12">
-                                        {/* Dot Fix: 同樣使用 left-6 配合 -translate-x-1/2 強制對齊中心軸 */}
+                                        {/* Dot Fix */}
                                         <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                         
                                         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm relative">
@@ -369,7 +379,7 @@
 
                              return (
                                 <div key={h.id} className="relative pl-12">
-                                    {/* Dot Fix: 同樣使用 left-6 配合 -translate-x-1/2 強制對齊中心軸 */}
+                                    {/* Dot Fix */}
                                     <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                     
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 shadow-sm">
@@ -417,11 +427,11 @@
                 </div>
             );
         };
-        
+
         const RegulationRow = ({ reg, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, templates, onManageTemplates }) => {
             const [histOpen, setHistOpen] = useState(false);
-            const [noteOpen, setNoteOpen] = useState(false);
-            const headerPopupRef = useRef(null);
+            const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+            const templateBtnRef = useRef(null);
 
             // Latest logic
             const latest = useMemo(() => {
@@ -485,16 +495,8 @@
                             <button onClick={onMoveUp} disabled={isFirst} className={`p-2 rounded-lg transition-colors ${isFirst?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowUp className="text-sm"/></button>
                             <button onClick={onMoveDown} disabled={isLast} className={`p-2 rounded-lg transition-colors ${isLast?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowDown className="text-sm"/></button>
                             <div className="w-px h-6 bg-primary-200 mx-2"></div>
-                            <button className="relative p-2 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-primary-50 transition-colors" onClick={()=>setNoteOpen(!noteOpen)}><Icons.Clipboard className="text-sm"/></button>
                             <button onClick={onDelete} className="p-2 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Icons.Trash className="text-sm"/></button>
                         </div>
-                        
-                        {noteOpen && (
-                            <div ref={headerPopupRef} className="absolute right-12 top-14 z-50 w-96 bg-white border border-primary-200 rounded-xl shadow-xl p-3 animate-fade-in">
-                                <textarea className="clean-input w-full p-2 text-sm h-32 resize-y" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="撰寫備註..." rows={4}></textarea>
-                                <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t})} onClose={()=>setNoteOpen(false)} safeAreaRef={headerPopupRef}/>
-                            </div>
-                        )}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
@@ -522,7 +524,6 @@
                             </div>
                             {histOpen && (
                                 <div className="space-y-4 animate-fade-in">
-                                    {/* Timeline Component Inserted Here */}
                                     <Timeline history={reg.history} />
                                     
                                     {(reg.history||[]).map((h,i) => {
@@ -546,7 +547,7 @@
                                                     <button onClick={()=>delHist(i)} className="text-gray-300 hover:text-red-500 p-1.5 rounded hover:bg-white transition-all"><Icons.Trash className="text-base"/></button>
                                                 </div>
 
-                                                {/* Row 2: Dates (Equal Width) */}
+                                                {/* Row 2: Dates (Equal Width) with Verification Buttons */}
                                                 {isDirect ? (
                                                     <div className="grid grid-cols-3 gap-4">
                                                         <div className="space-y-1">
@@ -563,6 +564,7 @@
                                                     </div>
                                                 ) : (
                                                     <div className="grid grid-cols-3 gap-4">
+                                                        {/* 系級 */}
                                                         <div className="space-y-1 relative">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">系級</label>
@@ -570,8 +572,12 @@
                                                                     {DEPT_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
                                                                 </select>
                                                             </div>
-                                                            <DateInput label="" dateValue={h.deptDate} onChange={v=>updateHist(i,'deptDate',v)} placeholder="日期"/>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1"><DateInput label="" dateValue={h.deptDate} onChange={v=>updateHist(i,'deptDate',v)} placeholder="日期"/></div>
+                                                                <VerificationButton isVerified={h.deptVerified} onToggle={()=>updateHist(i, 'deptVerified', !h.deptVerified)} label="系級紀錄確認" />
+                                                            </div>
                                                         </div>
+                                                        {/* 院級 */}
                                                         <div className="space-y-1 relative">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">院級</label>
@@ -579,14 +585,21 @@
                                                                     {COLLEGE_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
                                                                 </select>
                                                             </div>
-                                                            <DateInput label="" dateValue={h.collegeDate} onChange={v=>updateHist(i,'collegeDate',v)} placeholder="日期"/>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1"><DateInput label="" dateValue={h.collegeDate} onChange={v=>updateHist(i,'collegeDate',v)} placeholder="日期"/></div>
+                                                                <VerificationButton isVerified={h.collegeVerified} onToggle={()=>updateHist(i, 'collegeVerified', !h.collegeVerified)} label="院級紀錄確認" />
+                                                            </div>
                                                         </div>
+                                                        {/* 校級 */}
                                                         <div className="space-y-1">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">校級</label>
                                                                 <span className="text-[10px] text-primary-300 font-bold">實習委員會</span>
                                                             </div>
-                                                            <DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="日期"/>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="日期"/></div>
+                                                                <VerificationButton isVerified={h.univVerified} onToggle={()=>updateHist(i, 'univVerified', !h.univVerified)} label="校級紀錄確認" />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 )}
@@ -604,7 +617,80 @@
                             )}
                         </div>
                     </div>
-                    {reg.note && <div className="mt-4 text-xs text-slate-600 bg-yellow-50 p-3 rounded-lg border border-yellow-100 whitespace-pre-wrap leading-relaxed">{reg.note}</div>}
+
+                    {/* Check Result Section (Audit Status) */}
+                    <div className="mt-6 pt-4 border-t border-primary-100">
+                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
+                            <div className="text-xs font-bold text-primary-500 uppercase flex items-center gap-2">
+                                <Icons.Wrench className="text-sm"/> 法規查核結果
+                            </div>
+                            <div className="flex gap-2">
+                                {['pending', 'fix', 'pass'].map(status => {
+                                    const isActive = (reg.checkStatus || 'pending') === status;
+                                    let style = "bg-white text-gray-500 border-gray-200 hover:bg-gray-100";
+                                    let icon = <Icons.Dot className="text-[8px] mr-1"/>;
+                                    let label = "待確認";
+
+                                    if(status === 'fix') {
+                                        label = "須補正";
+                                        icon = <Icons.Alert className="text-xs mr-1"/>;
+                                        if(isActive) style = "bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30";
+                                    } else if (status === 'pass') {
+                                        label = "通過";
+                                        icon = <Icons.Check className="text-xs mr-1"/>;
+                                        if(isActive) style = "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30";
+                                    } else {
+                                        if(isActive) style = "bg-gray-600 text-white border-gray-600 shadow-md shadow-gray-500/30";
+                                    }
+
+                                    return (
+                                        <button 
+                                            key={status}
+                                            onClick={() => onUpdate({...reg, checkStatus: status})}
+                                            className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center ${style}`}
+                                        >
+                                            {icon} {label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Note & Templates Section (Moved to Bottom) - Modified Styles */}
+                    <div className="mt-4 pt-4 border-t border-primary-100 relative">
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-[10px] font-bold text-primary-400 uppercase">整體備註</label>
+                            <button 
+                                ref={templateBtnRef}
+                                onClick={()=>setTemplatePickerOpen(!templatePickerOpen)}
+                                className="text-xs text-primary-500 font-bold hover:bg-primary-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                            >
+                                <Icons.Clipboard className="text-xs"/> 引用模板
+                            </button>
+                        </div>
+                        <div className="relative">
+                            <textarea 
+                                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-slate-700 min-h-[80px] focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all resize-y placeholder-gray-400" 
+                                value={reg.note||''} 
+                                onChange={e=>onUpdate({...reg, note:e.target.value})} 
+                                placeholder="填寫法規整體備註..."
+                            ></textarea>
+                            
+                            {templatePickerOpen && (
+                                <NoteTemplatePicker 
+                                    templates={templates} 
+                                    onManage={onManageTemplates} 
+                                    onSelect={t=>{
+                                        onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t});
+                                        setTemplatePickerOpen(false);
+                                    }} 
+                                    onClose={()=>setTemplatePickerOpen(false)} 
+                                    safeAreaRef={templateBtnRef}
+                                />
+                            )}
+                        </div>
+                    </div>
                 </div>
             );
         };
