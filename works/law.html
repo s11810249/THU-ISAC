@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系所法規控管系統</title>
+    <title>系所法規控管系統 Pro V11</title>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -77,14 +77,13 @@
         const { useState, useEffect, useRef, useMemo } = React;
 
         // --- Icons (Using Font Awesome) ---
-        // 修正了所有 Icon 名稱以對應程式碼中的引用
         const Icons = {
             ScaleBalanced: (p) => <i className={`fa-solid fa-scale-balanced ${p.className||''}`}></i>,
             Building: (p) => <i className={`fa-solid fa-building-columns ${p.className||''}`}></i>,
             Dept: (p) => <i className={`fa-solid fa-graduation-cap ${p.className||''}`}></i>,
-            Academic: (p) => <i className={`fa-solid fa-graduation-cap ${p.className||''}`}></i>, // Alias for compatibility
+            Academic: (p) => <i className={`fa-solid fa-graduation-cap ${p.className||''}`}></i>,
             Cloud: (p) => <i className={`fa-solid fa-cloud ${p.className||''}`}></i>,
-            Scale: (p) => <i className={`fa-solid fa-scale-balanced ${p.className||''}`}></i>, // Use Scale Balanced for System too
+            Scale: (p) => <i className={`fa-solid fa-scale-balanced ${p.className||''}`}></i>,
             History: (p) => <i className={`fa-solid fa-clock-rotate-left ${p.className||''}`}></i>,
             Check: (p) => <i className={`fa-solid fa-circle-check ${p.className||''}`}></i>,
             Alert: (p) => <i className={`fa-solid fa-triangle-exclamation ${p.className||''}`}></i>,
@@ -535,11 +534,85 @@
                 const reader = new FileReader();
                 reader.onload = (evt) => {
                     try {
-                        const parsed = JSON.parse(evt.target.result); 
-                        if(Array.isArray(parsed)) { setData(parsed); } else { alert("格式不符"); }
-                    } catch(err) { alert("讀取失敗"); }
+                        // 1. Try JSON First
+                        try {
+                            const parsed = JSON.parse(evt.target.result);
+                            if (Array.isArray(parsed)) { setData(parsed); return; }
+                        } catch(e) {}
+
+                        // 2. Try XLSX/CSV
+                        const workbook = XLSX.read(evt.target.result, { type: 'binary' }); // 'binary' is better for CSV/XLSX text
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+                        // 3. Reconstruct Hierarchy
+                        // Expected Cols: 學院ID, 學院名稱, 學系ID, 學系名稱, 法規類型, 法規ID, 法規名稱, 最新版本日期, 校級會議日期, 系所雲端日期, 法規系統日期, 備註
+                        // Mapping to V11 Structure:
+                        // College -> Department -> Rules -> History (Synthetic)
+                        
+                        const newData = [];
+                        const colMap = {};
+
+                        jsonData.forEach(row => {
+                            const cId = row['學院ID'] || generateId();
+                            const dId = row['學系ID'] || generateId();
+                            const rId = row['法規ID'] || generateId();
+                            const type = row['法規類型']; // 委員會要點 or 實習辦法
+
+                            if (!colMap[cId]) {
+                                colMap[cId] = { id: cId, name: row['學院名稱'] || '未命名學院', departments: [] };
+                                newData.push(colMap[cId]);
+                            }
+                            
+                            let dept = colMap[cId].departments.find(d => d.id === dId);
+                            if (!dept) {
+                                dept = { id: dId, name: row['學系名稱'] || '未命名學系', committeeRules: [], internshipRules: [] };
+                                colMap[cId].departments.push(dept);
+                            }
+
+                            // Create Rule Object
+                            const newRule = {
+                                id: rId,
+                                name: row['法規名稱'] || '',
+                                note: row['備註'] || '',
+                                // Set selections directly if they exist
+                                cloudVersion: row['系所雲端日期'], 
+                                systemVersion: row['法規系統日期'],
+                                // Create a synthetic history entry so dropdowns work
+                                history: [{
+                                    id: generateId(),
+                                    label: '匯入歷史版本',
+                                    type: 'standard', // default
+                                    univDate: row['最新版本日期'] || row['校級會議日期'], // Best guess for "latest"
+                                    deptDate: '', 
+                                    collegeDate: '', 
+                                    note: '系統自動生成'
+                                }]
+                            };
+
+                            if (type && type.includes('委員會')) {
+                                dept.committeeRules.push(newRule);
+                            } else {
+                                dept.internshipRules.push(newRule);
+                            }
+                        });
+
+                        if (newData.length > 0) {
+                            if (confirm(`成功解析 ${newData.length} 個學院資料，是否覆蓋現有資料？`)) {
+                                setData(newData);
+                            }
+                        } else {
+                            alert("無法識別有效的法規資料格式。");
+                        }
+
+                    } catch (err) {
+                        console.error(err);
+                        alert("讀取失敗，請確認檔案格式正確。");
+                    }
                 };
-                reader.readAsText(file);
+                // Use readAsBinaryString for better compatibility with XLSX read type 'binary'
+                reader.readAsBinaryString(file);
             };
 
             const handleJSONExport = () => {
@@ -753,7 +826,7 @@
                                             <div className="space-y-6">
                                                 {(activeDepartment.internshipRules||[]).map((r, i) => (
                                                     <RegulationRow 
-                                                        key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates}
+                                                        key={r.id} reg={r} templates={templates} onManageTemplates={()=>setManageTemplates(true)}
                                                         onUpdate={u=>{
                                                             const parentCol = getParentCollege(activeDepartment.id);
                                                             const newDepts = parentCol.departments.map(d => {
