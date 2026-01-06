@@ -301,7 +301,7 @@
             );
         };
 
-        // --- Timeline Component (V17 Perfected) ---
+        // --- Timeline Component (V17 Perfected - No Italic, Multiline Support) ---
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
@@ -350,7 +350,8 @@
                                                 </div>
                                                 {h.univDate && <span className="bg-primary-50 text-primary-700 text-xs px-2 py-1 rounded font-num font-bold">{toROC(h.univDate)}</span>}
                                             </div>
-                                            {h.note && <div className="text-xs text-gray-500 italic pl-2 border-l-2 border-gray-300">{h.note}</div>}
+                                            {/* Modified: Removed italic, added whitespace-pre-wrap */}
+                                            {h.note && <div className="text-xs text-gray-500 whitespace-pre-wrap pl-2 border-l-2 border-gray-300">{h.note}</div>}
                                         </div>
                                     </div>
                                  );
@@ -406,7 +407,8 @@
                                             })}
                                         </div>
                                         
-                                        {h.note && <div className="mt-4 pt-2 border-t border-gray-200 text-xs text-gray-500 italic">{h.note}</div>}
+                                        {/* Modified: Removed italic, added whitespace-pre-wrap */}
+                                        {h.note && <div className="mt-4 pt-2 border-t border-gray-200 text-xs text-gray-500 whitespace-pre-wrap">{h.note}</div>}
                                     </div>
                                 </div>
                              );
