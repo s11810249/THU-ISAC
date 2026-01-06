@@ -3,20 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系所法規控管系統 Pro V16</title>
+    <title>系所法規控管系統 Pro V17</title>
     
-    <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <script>
@@ -44,7 +38,7 @@
                     },
                     boxShadow: {
                         'soft': '0 2px 10px rgba(44, 70, 96, 0.03)',
-                        'timeline': '0 0 0 4px #fff', 
+                        'timeline': '0 0 0 3px #fff', 
                     }
                 }
             }
@@ -63,15 +57,14 @@
         /* Clean Input Style (Bottom Border Only) */
         .clean-input { 
             background-color: transparent;
-            border-bottom-width: 1px;
-            border-color: #e2e8f0; /* gray-200 */
+            border: none;
+            border-bottom: 1px solid #e2e8f0;
             border-radius: 0;
-            padding-left: 0;
-            padding-right: 0;
+            padding: 4px 0;
             transition: all 0.2s;
         }
-        .clean-input:hover { border-color: #cbd5e1; } /* gray-300 */
-        .clean-input:focus { border-color: #4a78a0; outline: none; box-shadow: 0 1px 0 0 #4a78a0; }
+        .clean-input:hover { border-bottom-color: #cbd5e1; }
+        .clean-input:focus { border-bottom-color: #4a78a0; outline: none; box-shadow: 0 1px 0 0 #4a78a0; }
         
         .nav-item:hover { background-color: rgba(74, 120, 160, 0.05); color: #3c658d; }
         .nav-item.active { background-color: #e9eef5; color: #2c4660; font-weight: 600; }
@@ -210,30 +203,31 @@
             const handleBlur = () => { const p = parseROC(val); if(p) { onChange(p); setVal(toROC(p)); } else if(!val) { onChange(''); } else { setVal(toROC(dateValue)); } };
             const clearDate = (e) => { e.stopPropagation(); onChange(''); setVal(''); };
 
-            let statusClass = "bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100";
+            // Glassmorphism style
+            let statusClass = "bg-white/50 backdrop-blur-sm border-white/60 shadow-sm focus-within:bg-white/95 focus-within:shadow-md focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300";
             let badge = null;
 
             if (isBenchmark) {
-                statusClass = "bg-amber-50 border-amber-200 focus-within:border-amber-400 focus-within:ring-amber-100";
+                statusClass = "bg-amber-50/50 backdrop-blur-sm border-amber-200/60 focus-within:bg-white/95 focus-within:border-amber-400 focus-within:ring-amber-100";
                 badge = dateValue ? <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><Icons.Star className="text-[10px]"/> 基準</span> : <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><Icons.Alert className="text-[10px]"/> 未定</span>;
             } else if (status?.startsWith('warning')) {
                 const text = status === 'warning_source_missing' ? '未設定' : '未同步';
                 const labelColor = 'text-red-500';
-                statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
+                statusClass = "bg-red-50/50 backdrop-blur-sm border-red-200/60 focus-within:bg-white/95 focus-within:border-red-400 focus-within:ring-red-100";
                 badge = <span className={`${labelColor} text-xs font-bold flex items-center gap-1`}><Icons.Alert className="text-[10px]"/> {text}</span>;
             } else if (status === 'ok') {
-                statusClass = "bg-emerald-50 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
+                statusClass = "bg-emerald-50/50 backdrop-blur-sm border-emerald-200/60 focus-within:bg-white/95 focus-within:border-emerald-400 focus-within:ring-emerald-100";
                 badge = <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><Icons.Check className="text-[10px]"/> 同步</span>;
             }
 
             return (
-                <div className={`p-3 rounded-lg border transition-all ${statusClass} flex flex-col gap-1 relative ${disabled ? 'opacity-60 pointer-events-none bg-gray-100' : ''}`}>
+                <div className={`p-3 rounded-lg border transition-all ${statusClass} flex flex-col gap-1 relative ${disabled ? 'opacity-60 pointer-events-none bg-gray-100/50' : ''}`}>
                     <div className="flex justify-between items-center mb-1">
-                        {label && <span className={`text-[10px] font-bold uppercase tracking-wide ${isBenchmark ? 'text-amber-700' : 'text-gray-500'}`}>{label}</span>}
+                        <span className={`text-[10px] font-bold uppercase tracking-wide ${isBenchmark ? 'text-amber-700' : 'text-gray-500'}`}>{label}</span>
                         {badge}
                     </div>
                     <div className="relative flex items-center w-full">
-                        <input type="text" disabled={disabled} className={`w-full bg-transparent outline-none text-sm font-num placeholder-gray-400 pr-8 ${!dateValue && !disabled ? 'text-red-500 font-bold placeholder-red-300' : 'text-gray-700'}`} placeholder={disabled ? '-' : "未上傳"} value={val} onChange={handleChange} onBlur={handleBlur} />
+                        <input type="text" disabled={disabled} className={`w-full bg-transparent outline-none text-sm font-num placeholder-gray-400/70 pr-8 ${!dateValue && !disabled ? 'text-red-500 font-bold placeholder-red-300' : 'text-gray-700'}`} placeholder={disabled ? '-' : "未上傳"} value={val} onChange={handleChange} onBlur={handleBlur} />
                         <div className="absolute right-0 flex items-center gap-1">
                             {val && !disabled && <button onClick={clearDate} className="text-gray-300 hover:text-red-500 transition-colors"><Icons.XCircle className="text-sm"/></button>}
                             <button disabled={disabled} className={`date-input-trigger ${disabled ? 'text-gray-300' : 'text-gray-400 hover:text-blue-600'}`} onClick={()=>setOpen(!open)}><Icons.Calendar className="text-sm"/></button>
@@ -307,7 +301,7 @@
             );
         };
 
-        // --- Timeline Component (Enhanced V15) ---
+        // --- Timeline Component (V17 Perfected) ---
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
@@ -327,9 +321,7 @@
                     </div>
                     
                     <div className="relative space-y-8 pl-4">
-                        {/* Vertical Line - Centered with dots. Left padding of container is 16px (pl-4). 
-                            We want line at approx 23px from container left. 
-                            Let's position line absolute. */}
+                        {/* Vertical Line - Fixed at left: 23px to align with center of 20px box-content dot at 14px */}
                         <div className="absolute left-[23px] top-2 bottom-4 w-[2px] bg-gray-200"></div>
 
                         {sortedHistory.map((h, i) => {
@@ -348,7 +340,7 @@
 
                                  return (
                                     <div key={h.id} className="relative pl-12">
-                                        <div className={`absolute left-[15px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
+                                        <div className={`absolute left-[14px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                         
                                         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm relative">
                                             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-2">
@@ -364,7 +356,7 @@
                                  );
                              }
 
-                             // Standard Process View (Enhanced Stepper)
+                             // Standard Process View
                              const steps = [];
                              // Auto-hide Dept level if type is 'none'
                              if (h.deptMeetingType !== 'none') {
@@ -375,7 +367,8 @@
 
                              return (
                                 <div key={h.id} className="relative pl-12">
-                                    <div className={`absolute left-[15px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
+                                    {/* Vertical Dot */}
+                                    <div className={`absolute left-[14px] top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
                                     
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 shadow-sm">
                                         <div className="flex justify-between items-center mb-4">
@@ -384,15 +377,13 @@
                                         </div>
 
                                         <div className="flex items-center justify-between relative px-2">
-                                            {/* Connector Line - Thicker, darker, z-0 */}
-                                            <div className="absolute top-2.5 left-8 right-8 h-[2px] bg-gray-300 z-0"></div>
+                                            {/* Horizontal Connector Line - Darker & Correct z-index */}
+                                            <div className="absolute top-2.5 left-[16%] right-[16%] h-[2px] bg-slate-300 z-0"></div>
                                             
                                             {steps.map((step, idx) => {
                                                 const hasDate = !!step.date;
                                                 const isWarning = !hasDate;
                                                 
-                                                // If warning, red dot. If has date, primary dot.
-                                                // z-10 ensures dots sit on top of line
                                                 return (
                                                     <div key={step.key} className="flex flex-col items-center flex-1 relative z-10">
                                                         <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 transition-colors duration-300 z-10
@@ -498,7 +489,7 @@
                         
                         {noteOpen && (
                             <div ref={headerPopupRef} className="absolute right-12 top-14 z-50 w-96 bg-white border border-primary-200 rounded-xl shadow-xl p-3 animate-fade-in">
-                                <textarea className="w-full border border-primary-200 bg-primary-50 p-3 rounded-lg text-sm mb-2 focus:border-primary-500 focus:bg-white outline-none transition-all resize-y" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="撰寫備註..." rows={4}></textarea>
+                                <textarea className="clean-input w-full p-2 text-sm h-32 resize-y" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="撰寫備註..." rows={4}></textarea>
                                 <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t})} onClose={()=>setNoteOpen(false)} safeAreaRef={headerPopupRef}/>
                             </div>
                         )}
@@ -521,8 +512,6 @@
                         </div>
                     </div>
 
-                    <Timeline history={reg.history} />
-
                     <div className="border-t border-primary-100 pt-4 mt-6">
                          <div className="space-y-3">
                             <div className="flex items-center justify-between cursor-pointer group" onClick={()=>setHistOpen(!histOpen)}>
@@ -531,6 +520,9 @@
                             </div>
                             {histOpen && (
                                 <div className="space-y-4 animate-fade-in">
+                                    {/* Timeline Component Inserted Here */}
+                                    <Timeline history={reg.history} />
+                                    
                                     {(reg.history||[]).map((h,i) => {
                                         const isDirect = h.type !== 'standard' && h.type !== undefined;
                                         return (
@@ -879,7 +871,7 @@
                                                 <input 
                                                     value={activeCollege.name} 
                                                     onChange={(e)=>updateCollege({...activeCollege, name:e.target.value})} 
-                                                    className="ghost-input text-3xl font-bold text-primary-800 w-full"
+                                                    className="bg-transparent border-none outline-none text-3xl font-bold text-primary-800 w-full hover:bg-white/20 rounded px-2 transition-colors"
                                                 />
                                             </div>
                                         </div>
@@ -912,11 +904,12 @@
                                             <div className="w-14 h-14 bg-white rounded-2xl shadow-soft border border-primary-100 flex items-center justify-center text-primary-600"><Icons.Dept className="text-2xl"/></div>
                                             <div>
                                                 <div className="text-xs font-bold text-primary-400 uppercase tracking-widest mb-1">{getParentCollege(activeDepartment.id)?.name}</div>
+                                                {/* Modified Department Name Input for Transparent Style */}
                                                 <input value={activeDepartment.name} onChange={(e)=>{
                                                     const parentCol = getParentCollege(activeDepartment.id);
                                                     const newDepts = parentCol.departments.map(d => d.id === activeDepartment.id ? { ...d, name: e.target.value } : d);
                                                     updateCollege({ ...parentCol, departments: newDepts });
-                                                }} className="ghost-input text-3xl font-bold text-primary-800"/>
+                                                }} className="bg-transparent border-none outline-none text-3xl font-bold text-primary-800 p-0 w-full focus:ring-0 placeholder-gray-300"/>
                                             </div>
                                         </div>
                                         <button onClick={()=>{
