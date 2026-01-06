@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系所法規控管系統</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'sans-serif'],
+                        num: ['"Inter"', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f4f7fb',
+                            100: '#e9eef5',
+                            200: '#cedce9',
+                            300: '#a2bed7',
+                            400: '#709bc0',
+                            500: '#4a78a0',
+                            600: '#3c658d',
+                            700: '#315273',
+                            800: '#2c4660',
+                            900: '#293c51',
+                            950: '#1b2736',
+                        },
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 10px rgba(44, 70, 96, 0.03)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #f4f7fb; color: #2c4660; -webkit-font-smoothing: antialiased; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .animate-fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .ghost-input { transition: all 0.2s; border-bottom: 1px solid transparent; background: transparent; }
+        .ghost-input:hover { border-bottom-color: #e2e8f0; }
+        .ghost-input:focus { border-bottom-color: #4a78a0; outline: none; }
+        
+        .nav-item:hover { background-color: rgba(74, 120, 160, 0.05); color: #3c658d; }
+        .nav-item.active { background-color: #e9eef5; color: #2c4660; font-weight: 600; }
+        
+        .btn-action { transition: all 0.2s; }
+        .btn-action:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- Icons (Using Font Awesome) ---
+        // 修正了所有 Icon 名稱以對應程式碼中的引用
+        const Icons = {
+            ScaleBalanced: (p) => <i className={`fa-solid fa-scale-balanced ${p.className||''}`}></i>,
+            Building: (p) => <i className={`fa-solid fa-building-columns ${p.className||''}`}></i>,
+            Dept: (p) => <i className={`fa-solid fa-graduation-cap ${p.className||''}`}></i>,
+            Academic: (p) => <i className={`fa-solid fa-graduation-cap ${p.className||''}`}></i>, // Alias for compatibility
+            Cloud: (p) => <i className={`fa-solid fa-cloud ${p.className||''}`}></i>,
+            Scale: (p) => <i className={`fa-solid fa-scale-balanced ${p.className||''}`}></i>, // Use Scale Balanced for System too
+            History: (p) => <i className={`fa-solid fa-clock-rotate-left ${p.className||''}`}></i>,
+            Check: (p) => <i className={`fa-solid fa-circle-check ${p.className||''}`}></i>,
+            Alert: (p) => <i className={`fa-solid fa-triangle-exclamation ${p.className||''}`}></i>,
+            Plus: (p) => <i className={`fa-solid fa-plus ${p.className||''}`}></i>,
+            Trash: (p) => <i className={`fa-solid fa-trash-can ${p.className||''}`}></i>,
+            ChevronDown: (p) => <i className={`fa-solid fa-chevron-down ${p.className||''}`}></i>,
+            ChevronUp: (p) => <i className={`fa-solid fa-chevron-up ${p.className||''}`}></i>,
+            ChevronRight: (p) => <i className={`fa-solid fa-chevron-right ${p.className||''}`}></i>,
+            ChevronLeft: (p) => <i className={`fa-solid fa-chevron-left ${p.className||''}`}></i>,
+            XCircle: (p) => <i className={`fa-solid fa-circle-xmark ${p.className||''}`}></i>,
+            Save: (p) => <i className={`fa-solid fa-file-export ${p.className||''}`}></i>,
+            Upload: (p) => <i className={`fa-solid fa-file-import ${p.className||''}`}></i>,
+            Home: (p) => <i className={`fa-solid fa-house ${p.className||''}`}></i>,
+            Table: (p) => <i className={`fa-solid fa-table ${p.className||''}`}></i>,
+            Clipboard: (p) => <i className={`fa-regular fa-clipboard ${p.className||''}`}></i>,
+            Star: (p) => <i className={`fa-solid fa-star ${p.className||''}`}></i>,
+            ArrowUp: (p) => <i className={`fa-solid fa-arrow-up ${p.className||''}`}></i>,
+            ArrowDown: (p) => <i className={`fa-solid fa-arrow-down ${p.className||''}`}></i>,
+            Calendar: (p) => <i className={`fa-regular fa-calendar ${p.className||''}`}></i>,
+            Edit: (p) => <i className={`fa-solid fa-pen-to-square ${p.className||''}`}></i>,
+            Clock: (p) => <i className={`fa-regular fa-clock ${p.className||''}`}></i>,
+            Manage: (p) => <i className={`fa-solid fa-gear ${p.className||''}`}></i>
+        };
+
+        // --- Standard Note Templates ---
+        const DEFAULT_NOTE_TEMPLATES = [
+            { id: 1, label: "✅ 已確認最新", content: "經查核確認，本法規為最新版本，已完成提送校級委員會備查，且法規系統及相關資料上傳空間內容皆為最新。" },
+            { id: 2, label: "⚠️ 格式/體例調整", content: "本法規依 yyy/mm/dd 相關函文調整條文格式或體例，屬非實質內容修正，爰逕予修訂並簽請校長核備。" },
+            { id: 3, label: "⚠️ 系統未更新", content: "法規系統尚未更新 yyy/mm/dd 校級委員會核予備查之最新版本，系統目前仍顯示舊版內容。" },
+            { id: 4, label: "⚠️ 名稱修正未送", content: "因系所名稱調整，配合法規名稱修正，惟該名稱修正未送校級委員會備查，未涉及條文實質內容修正。" },
+            { id: 5, label: "⏳ 送校級備查中", content: "修正草案已於 yyy/mm/dd 經院務會議修正通過，並提送校級委員會備查中。" },
+            { id: 6, label: "🔴 未上傳系統", content: "本法規尚未上傳至法規系統，亦未上傳至指定資料上傳空間。" }
+        ];
+
+        // --- Helper Types for History ---
+        const PROCESS_TYPES = [
+            { id: 'standard', label: '一般修法' },
+            { id: 'direct', label: '授權逕予修正' },
+            { id: 'name_change', label: '法規名稱變更' },
+            { id: 'format', label: '僅格式調整' }
+        ];
+
+        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        const toROC = (date) => { if (!date) return ''; const p = date.split('-'); return p.length === 3 ? `${parseInt(p[0])-1911}/${p[1]}/${p[2]}` : date; };
+        const parseROC = (val) => { const v = val.replace(/[^0-9]/g, ''); if (v.length < 6) return null; let y, m, d; if (v.length === 7) { y=parseInt(v.substring(0,3)); m=v.substring(3,5); d=v.substring(5,7); } else { y=parseInt(v.substring(0,2)); m=v.substring(2,4); d=v.substring(4,6); } return `${y+1911}-${m}-${d}`; };
+
+        const checkStatus = (refDate, targetDate) => {
+            if (!refDate) return 'warning_source_missing'; 
+            if (!targetDate) return 'warning_missing'; 
+            return refDate === targetDate ? 'ok' : 'warning_mismatch';
+        };
+
+        const initialData = [];
+
+        // --- UI Components ---
+        const StatusBadge = ({ status }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">待確認</span>;
+            if (status === 'ok') return (
+                <div className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                    <Icons.Check className="mr-1 text-xs" /> 同步
+                </div>
+            );
+            return (
+                <div className="flex items-center text-red-500 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+                    <Icons.Alert className="mr-1 text-xs" /> 未同步
+                </div>
+            );
+        };
+
+        const TableStatusBadge = ({ status, label }) => {
+            if (status === 'empty') return <span className="text-gray-400 text-xs">-</span>;
+            if (status === 'ok') return <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><Icons.Check className="text-xs"/> {label}</span>;
+            return <span className="text-red-500 text-xs font-bold flex items-center gap-1"><Icons.Alert className="text-xs"/> 未同步</span>;
+        };
+
+        const CustomROCDatePicker = ({ isOpen, onClose, dateValue, onChange }) => {
+            const pickerRef = useRef(null);
+            const [viewYear, setViewYear] = useState(() => dateValue ? parseInt(dateValue.split('-')[0]) : new Date().getFullYear());
+            const [viewMonth, setViewMonth] = useState(() => dateValue ? parseInt(dateValue.split('-')[1]) - 1 : new Date().getMonth());
+            useEffect(() => { const h = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target) && !e.target.closest('.date-input-trigger')) onClose(); }; if(isOpen) document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, [isOpen]);
+            const changeMonth = (offset) => { let nm = viewMonth + offset, ny = viewYear; if(nm>11){nm=0;ny++;}else if(nm<0){nm=11;ny--;} setViewMonth(nm); setViewYear(ny); };
+            const handleDateClick = (d) => { onChange(`${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`); onClose(); };
+            const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+            const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+            const days = Array(firstDay).fill(null).concat([...Array(daysInMonth).keys()].map(i=>i+1));
+            if(!isOpen) return null;
+            return (
+                <div ref={pickerRef} className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-4 w-64 animate-fade-in" style={{top:'100%', right:0, marginTop:'4px'}}>
+                    <div className="flex justify-between items-center mb-3">
+                        <button onClick={()=>changeMonth(-1)} className="p-1 hover:bg-gray-100 rounded text-gray-500"><Icons.ChevronLeft /></button>
+                        <div className="font-bold text-gray-700 text-sm">民國 {viewYear-1911} 年 {viewMonth+1} 月</div>
+                        <button onClick={()=>changeMonth(1)} className="p-1 hover:bg-gray-100 rounded text-gray-500"><Icons.ChevronRight /></button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1 text-gray-400 font-medium"><div className="text-red-400">日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
+                    <div className="grid grid-cols-7 gap-1">{days.map((d,i)=>(<div key={i} className="aspect-square">{d && <button onClick={()=>handleDateClick(d)} className={`w-full h-full flex items-center justify-center rounded-full text-xs transition-colors ${dateValue===`${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`?'bg-primary-600 text-white font-bold':'text-gray-700 hover:bg-primary-50'}`}>{d}</button>}</div>))}</div>
+                    <div className="mt-3 pt-2 border-t border-gray-100 flex justify-center"><button onClick={()=>{const n=new Date();onChange(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`);onClose();}} className="text-xs text-blue-600 font-bold hover:underline">今天</button></div>
+                </div>
+            );
+        };
+
+        const DateInput = ({ label, dateValue, onChange, placeholder = "yyy/mm/dd", disabled = false, status, isBenchmark }) => {
+            const [val, setVal] = useState(toROC(dateValue));
+            const [open, setOpen] = useState(false);
+            useEffect(() => setVal(toROC(dateValue)), [dateValue]);
+            const handleChange = (e) => { setVal(e.target.value); const p = parseROC(e.target.value); if(p) onChange(p); };
+            const handleBlur = () => { const p = parseROC(val); if(p) { onChange(p); setVal(toROC(p)); } else if(!val) { onChange(''); } else { setVal(toROC(dateValue)); } };
+            const clearDate = (e) => { e.stopPropagation(); onChange(''); setVal(''); };
+
+            let statusClass = "bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100";
+            let badge = null;
+
+            if (isBenchmark) {
+                statusClass = "bg-amber-50 border-amber-200 focus-within:border-amber-400 focus-within:ring-amber-100";
+                badge = dateValue ? <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><Icons.Star className="text-[10px]"/> 基準</span> : <span className="text-amber-600 text-xs font-bold flex items-center gap-1"><Icons.Alert className="text-[10px]"/> 未定</span>;
+            } else if (status?.startsWith('warning')) {
+                const text = status === 'warning_source_missing' ? '未設定' : '未同步';
+                const labelColor = status === 'warning_source_missing' || status === 'warning_missing' ? 'text-red-500' : 'text-red-500';
+                statusClass = "bg-red-50 border-red-200 focus-within:border-red-400 focus-within:ring-red-100";
+                badge = <span className={`${labelColor} text-xs font-bold flex items-center gap-1`}><Icons.Alert className="text-[10px]"/> {text}</span>;
+            } else if (status === 'ok') {
+                statusClass = "bg-emerald-50 border-emerald-200 focus-within:border-emerald-400 focus-within:ring-emerald-100";
+                badge = <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><Icons.Check className="text-[10px]"/> 同步</span>;
+            }
+
+            return (
+                <div className={`p-3 rounded-lg border transition-all ${statusClass} flex flex-col gap-1 relative ${disabled ? 'opacity-60 pointer-events-none bg-gray-100' : ''}`}>
+                    <div className="flex justify-between items-center mb-1">
+                        <span className={`text-[10px] font-bold uppercase tracking-wide ${isBenchmark ? 'text-amber-700' : 'text-gray-500'}`}>{label}</span>
+                        {badge}
+                    </div>
+                    <div className="relative flex items-center w-full">
+                        <input type="text" disabled={disabled} className={`w-full bg-transparent outline-none text-sm font-num placeholder-gray-400 pr-8 ${!dateValue && !disabled ? 'text-red-500 font-bold placeholder-red-300' : 'text-gray-700'}`} placeholder={disabled ? '-' : "未上傳"} value={val} onChange={handleChange} onBlur={handleBlur} />
+                        <div className="absolute right-0 flex items-center gap-1">
+                            {val && !disabled && <button onClick={clearDate} className="text-gray-300 hover:text-red-500 transition-colors"><Icons.XCircle className="text-sm"/></button>}
+                            <button disabled={disabled} className={`date-input-trigger ${disabled ? 'text-gray-300' : 'text-gray-400 hover:text-blue-600'}`} onClick={()=>setOpen(!open)}><Icons.Calendar className="text-sm"/></button>
+                        </div>
+                    </div>
+                    { !disabled && <CustomROCDatePicker isOpen={open} onClose={()=>setOpen(false)} dateValue={dateValue} onChange={(v)=>{onChange(v); setVal(toROC(v));}} /> }
+                </div>
+            );
+        };
+
+        const TemplateManager = ({ templates, onClose, onChange }) => {
+            const [local, setLocal] = useState(templates);
+            const save = () => { onChange(local); onClose(); };
+            const add = () => setLocal([...local, { id: generateId(), label: '新備註', content: '' }]);
+            const remove = (idx) => setLocal(local.filter((_,i)=>i!==idx));
+            const update = (i, f, v) => { const n=[...local]; n[i][f]=v; setLocal(n); };
+
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col animate-fade-in">
+                        <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                            <h3 className="font-bold text-lg">管理常用備註</h3>
+                            <button onClick={onClose}><Icons.XCircle className="text-lg hover:text-red-400"/></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 bg-primary-50 space-y-4">
+                            {local.map((t, i) => (
+                                <div key={t.id || i} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm flex gap-3 hover:shadow-md transition-all">
+                                    <div className="flex-1 space-y-2">
+                                        <input value={t.label} onChange={e=>update(i,'label',e.target.value)} className="w-full text-sm font-bold border-b border-dashed border-gray-300 focus:border-blue-500 outline-none pb-1" placeholder="標題"/>
+                                        <textarea value={t.content} onChange={e=>update(i,'content',e.target.value)} className="w-full text-xs border border-gray-200 rounded p-2 focus:border-blue-500 outline-none resize-none h-16 bg-gray-50 focus:bg-white transition-colors" placeholder="內容..."></textarea>
+                                    </div>
+                                    <button onClick={()=>remove(i)} className="text-gray-300 hover:text-red-500 self-start p-1"><Icons.Trash className="text-base"/></button>
+                                </div>
+                            ))}
+                            <button onClick={add} className="w-full py-3 border-2 border-dashed border-gray-300 text-gray-400 rounded-lg hover:border-blue-500 hover:text-blue-600 font-bold flex justify-center items-center gap-2 hover:bg-white transition-all"><Icons.Plus className="text-base"/> 新增模板</button>
+                        </div>
+                        <div className="p-4 bg-white border-t border-gray-200 flex justify-end gap-2">
+                            <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">取消</button>
+                            <button onClick={save} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-sm font-bold shadow-sm shadow-blue-500/30 transition-all active:scale-95">儲存變更</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const NoteTemplatePicker = ({ templates, onSelect, onClose, onManage, safeAreaRef }) => {
+            const ref = useRef(null);
+            useEffect(() => { 
+                const h = (e) => { 
+                    if(ref.current && !ref.current.contains(e.target)) {
+                        if(safeAreaRef && safeAreaRef.current && safeAreaRef.current.contains(e.target)) return;
+                        onClose();
+                    }
+                }; 
+                document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); 
+            }, [onClose, safeAreaRef]);
+            return (
+                <div ref={ref} className="absolute z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-80 max-h-96 overflow-y-auto animate-fade-in right-0 top-full mt-1 flex flex-col">
+                    <div className="sticky top-0 bg-primary-50 border-b border-gray-100 px-4 py-3 text-xs font-bold text-primary-500 uppercase flex justify-between items-center">
+                        <span>選擇備註 (多選)</span>
+                        <div className="flex gap-2">
+                            <button onClick={onManage} className="text-blue-600 hover:text-blue-800 flex items-center gap-1" title="管理模板"><Icons.Manage className="text-xs"/> 管理</button>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icons.XCircle className="text-sm"/></button>
+                        </div>
+                    </div>
+                    <div className="p-2 space-y-1 flex-1 overflow-y-auto">
+                        {templates.map((t,i)=><button key={i} onClick={()=>onSelect(t.content)} className="w-full text-left p-3 hover:bg-primary-50 rounded-lg group transition-colors border border-transparent hover:border-primary-100"><div className="text-sm font-bold text-gray-700 mb-1 group-hover:text-blue-700">{t.label}</div><div className="text-xs text-gray-500 line-clamp-2 group-hover:text-blue-600">{t.content}</div></button>)}
+                    </div>
+                </div>
+            );
+        };
+
+        const RegulationRow = ({ reg, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, templates, onManageTemplates }) => {
+            const [histOpen, setHistOpen] = useState(false);
+            const [noteOpen, setNoteOpen] = useState(false);
+            const headerPopupRef = useRef(null);
+
+            // Latest
+            const latest = useMemo(() => {
+                let max = '', label = '無紀錄', stage = 'none', type = 'standard';
+                (reg.history||[]).forEach(h => {
+                    const hType = h.type || 'standard';
+                    if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
+                        if(h.univDate && h.univDate>=max) { max=h.univDate; label=`${toROC(h.univDate)} ${h.directUnit || '逕予修正'} (${h.label})`; stage='univ'; type=hType; }
+                    } else {
+                         if(h.univDate && h.univDate>=max) { max=h.univDate; label=`${toROC(h.univDate)} 校級 (${h.label})`; stage='univ'; type=hType; }
+                         else if(h.collegeDate && h.collegeDate>=max) { max=h.collegeDate; label=`${toROC(h.collegeDate)} 院級 (${h.label})`; stage='college'; type=hType; }
+                         else if(h.deptDate && h.deptDate>=max) { max=h.deptDate; label=`${toROC(h.deptDate)} 系級 (${h.label})`; stage='dept'; type=hType; }
+                    }
+                });
+                return { date: max, label, stage, type };
+            }, [reg.history]);
+
+            const opts = useMemo(() => {
+                const o = [{val:'', lbl:'未上傳'}];
+                (reg.history||[]).forEach(h => {
+                    const hType = h.type || 'standard';
+                    if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
+                        if(h.univDate) o.push({val: h.univDate, lbl: `${toROC(h.univDate)} ${h.directUnit || '逕予修正'} (${h.label})`});
+                    } else {
+                        if(h.univDate) o.push({val: h.univDate, lbl: `${toROC(h.univDate)} 校級 (${h.label})`});
+                        if(h.collegeDate) o.push({val: h.collegeDate, lbl: `${toROC(h.collegeDate)} 院級 (${h.label})`});
+                        if(h.deptDate) o.push({val: h.deptDate, lbl: `${toROC(h.deptDate)} 系級 (${h.label})`});
+                    }
+                });
+                return o.sort((a,b)=>b.val.localeCompare(a.val));
+            }, [reg.history]);
+
+            const getStat = (v) => { if(!v) return 'missing'; if(!latest.date) return 'ok'; return v >= latest.date ? 'ok' : 'old'; };
+            const cStat = getStat(reg.cloudVersion);
+            const sStat = getStat(reg.systemVersion);
+            const StatusTag = ({s}) => s==='missing' ? <span className="bg-red-50 text-red-600 border border-red-100 text-[10px] px-2 py-0.5 rounded-full font-bold flex gap-1 items-center"><Icons.Alert className="text-xs"/>未上傳</span> : s==='old' ? <span className="bg-orange-50 text-orange-600 border border-orange-100 text-[10px] px-2 py-0.5 rounded-full font-bold flex gap-1 items-center"><Icons.Clock className="text-xs"/>過舊</span> : <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] px-2 py-0.5 rounded-full font-bold flex gap-1 items-center"><Icons.Check className="text-xs"/>同步</span>;
+            const addHist = () => onUpdate({...reg, history: [...(reg.history||[]), {id:generateId(), label:'新修正', type:'standard', deptDate:'', collegeDate:'', univDate:'', note:''}]});
+            const updateHist = (idx, f, v) => { const h = [...reg.history]; h[idx][f]=v; onUpdate({...reg, history:h}); };
+            const delHist = (idx) => confirm("刪除？") && onUpdate({...reg, history:reg.history.filter((_,i)=>i!==idx)});
+
+            return (
+                <div className="bg-white border border-primary-200 rounded-lg p-6 mb-6 shadow-soft hover:shadow-card-hover transition-all relative z-10 group focus-within:z-50">
+                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6 pb-4 border-b border-primary-100">
+                        <div className="flex-1 w-full">
+                             <label className="text-[10px] font-bold text-primary-400 uppercase tracking-wider mb-1 block">法規名稱</label>
+                             <input className="w-full text-lg font-bold text-primary-900 bg-transparent outline-none border-b-2 border-transparent hover:border-primary-200 focus:border-primary-500 transition-colors pb-1" value={reg.name} onChange={e=>onUpdate({...reg, name:e.target.value})} placeholder="輸入名稱..."/>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button onClick={onMoveUp} disabled={isFirst} className={`p-2 rounded-lg transition-colors ${isFirst?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowUp className="text-sm"/></button>
+                            <button onClick={onMoveDown} disabled={isLast} className={`p-2 rounded-lg transition-colors ${isLast?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowDown className="text-sm"/></button>
+                            <div className="w-px h-6 bg-primary-200 mx-2"></div>
+                            <button className="relative p-2 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-primary-50 transition-colors" onClick={()=>setNoteOpen(!noteOpen)}><Icons.Clipboard className="text-sm"/></button>
+                            <button onClick={onDelete} className="p-2 text-gray-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"><Icons.Trash className="text-sm"/></button>
+                        </div>
+                        
+                        {noteOpen && (
+                            <div ref={headerPopupRef} className="absolute right-12 top-14 z-50 w-96 bg-white border border-primary-200 rounded-xl shadow-xl p-3 animate-fade-in">
+                                <textarea className="w-full border border-primary-200 bg-primary-50 p-3 rounded-lg text-sm mb-2 focus:border-primary-500 focus:bg-white outline-none transition-all resize-y" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="撰寫備註..." rows={4}></textarea>
+                                <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t})} onClose={()=>setNoteOpen(false)} safeAreaRef={headerPopupRef}/>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
+                        <div className="bg-primary-50 border border-primary-100 rounded-lg p-4 flex flex-col justify-center">
+                            <div className="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${latest.date?'bg-primary-500 animate-pulse':'bg-primary-300'}`}></span> 最新修法進度</div>
+                            <div className="font-num text-xl font-bold text-primary-800">{latest.label}</div>
+                            {latest.type === 'standard' && latest.stage!=='univ'&&latest.stage!=='none'&&<div className="text-xs text-amber-600 font-bold mt-2 flex items-center gap-1"><Icons.Alert className="text-xs"/> 尚未完成校級備查</div>}
+                            {(latest.type !== 'standard' && latest.type) && <div className="text-xs text-primary-500 font-bold mt-2 flex items-center gap-1">🔖 {PROCESS_TYPES.find(p=>p.id===latest.type)?.label}</div>}
+                        </div>
+                        <div className={`p-4 rounded-lg border ${cStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
+                            <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Cloud className="text-xs"/> 系所雲端</label><StatusTag s={cStat}/></div>
+                            <select value={reg.cloudVersion||''} onChange={e=>onUpdate({...reg, cloudVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
+                        </div>
+                        <div className={`p-4 rounded-lg border ${sStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
+                            <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Scale className="text-xs"/> 法規系統</label><StatusTag s={sStat}/></div>
+                            <select value={reg.systemVersion||''} onChange={e=>onUpdate({...reg, systemVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-primary-100 pt-4">
+                         <div className="space-y-3">
+                            <div className="flex items-center justify-between cursor-pointer group" onClick={()=>setHistOpen(!histOpen)}>
+                                <h5 className="text-xs font-bold text-primary-400 uppercase tracking-wider flex items-center gap-2 group-hover:text-primary-600 transition-colors"><Icons.History className="text-xs"/> 修法歷程 {histOpen ? <Icons.ChevronUp className="text-xs"/> : <Icons.ChevronDown className="text-xs"/>}</h5>
+                                <button onClick={(e)=>{e.stopPropagation(); addHist(); setHistOpen(true);}} className="text-xs text-primary-600 font-bold hover:bg-primary-50 px-3 py-1.5 rounded-lg flex gap-1 items-center transition-colors"><Icons.Plus className="text-xs"/> 新增歷程</button>
+                            </div>
+                            {histOpen && (
+                                <div className="space-y-2 animate-fade-in">
+                                    {(reg.history||[]).map((h,i) => {
+                                        const isDirect = h.type !== 'standard' && h.type !== undefined;
+                                        return (
+                                            <div key={h.id} className="bg-primary-50 rounded-lg p-3 grid grid-cols-12 gap-4 items-center text-sm border border-primary-100">
+                                                <div className="col-span-3 space-y-1">
+                                                    <input className="w-full bg-transparent border-b border-transparent focus:border-primary-400 font-bold text-primary-700 outline-none transition-colors" value={h.label} onChange={e=>updateHist(i,'label',e.target.value)} placeholder="歷程名稱"/>
+                                                    <select value={h.type || 'standard'} onChange={e=>updateHist(i,'type',e.target.value)} className="w-full text-xs bg-transparent text-primary-500 outline-none cursor-pointer">
+                                                        {PROCESS_TYPES.map(pt=><option key={pt.id} value={pt.id}>{pt.label}</option>)}
+                                                    </select>
+                                                </div>
+                                                
+                                                {isDirect ? (
+                                                    <>
+                                                        <div className="col-span-4">
+                                                            <label className="text-[10px] font-bold text-primary-400 uppercase tracking-wider mb-0.5 block">核定單位/依據</label>
+                                                            <input 
+                                                                className="w-full bg-white border border-primary-200 rounded px-2 py-1 h-9 text-sm focus:border-primary-400 outline-none" 
+                                                                value={h.directUnit || ''} 
+                                                                onChange={e=>updateHist(i, 'directUnit', e.target.value)} 
+                                                                placeholder="例如：教務處"
+                                                            />
+                                                        </div>
+                                                        <div className="col-span-2">
+                                                            <DateInput label="核定日期" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="日期"/>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="col-span-2"><DateInput label="系級" dateValue={h.deptDate} onChange={v=>updateHist(i,'deptDate',v)} placeholder="系級日期"/></div>
+                                                        <div className="col-span-2"><DateInput label="院級" dateValue={h.collegeDate} onChange={v=>updateHist(i,'collegeDate',v)} placeholder="院級日期"/></div>
+                                                        <div className="col-span-2"><DateInput label="校級" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="校級日期"/></div>
+                                                    </>
+                                                )}
+
+                                                <div className="col-span-2"><input className="w-full bg-transparent border-b border-transparent focus:border-primary-400 text-xs text-primary-500 outline-none transition-colors" value={h.note||''} onChange={e=>updateHist(i,'note',e.target.value)} placeholder="備註..."/></div>
+                                                <div className="col-span-1 text-right"><button onClick={()=>delHist(i)} className="text-gray-300 hover:text-red-500 p-1 rounded hover:bg-white transition-all"><Icons.Trash className="text-base"/></button></div>
+                                            </div>
+                                        );
+                                    })}
+                                    {(reg.history||[]).length===0 && <div className="text-center text-xs text-gray-400 py-4 border-2 border-dashed border-primary-200 rounded-xl">尚無修法歷程</div>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {reg.note && <div className="mt-4 text-xs text-primary-600 bg-yellow-50 p-3 rounded-lg border border-yellow-100 whitespace-pre-wrap leading-relaxed">{reg.note}</div>}
+                </div>
+            );
+        };
+
+        const Dashboard = ({ data }) => {
+            const stats = useMemo(() => {
+                let total=0, warning=0, list=[];
+                data.forEach(c => c.departments.forEach(d => {
+                    [...(d.committeeRules||[]), ...(d.internshipRules||[])].forEach(r => {
+                        total++;
+                        let max = ''; (r.history||[]).forEach(h=>{ if(h.univDate>max) max=h.univDate; if(h.type!=='direct' && h.type!=='name_change' && h.type!=='format'){if(h.collegeDate>max) max=h.collegeDate; if(h.deptDate>max) max=h.deptDate;} });
+                        const cOk = !r.cloudVersion ? false : (!max ? true : r.cloudVersion >= max);
+                        const sOk = !r.systemVersion ? false : (!max ? true : r.systemVersion >= max);
+                        if(!cOk || !sOk) {
+                            warning++;
+                            list.push({col: c.name, dept: d.name, name: r.name, issue: !cOk && !sOk ? '雙邊未更新' : !cOk ? '雲端未更新' : '系統未更新'});
+                        }
+                    });
+                }));
+                return { total, warning, list };
+            }, [data]);
+
+            return (
+                <div className="max-w-6xl mx-auto space-y-10 animate-fade-in p-10">
+                    <div className="grid grid-cols-3 gap-8">
+                        <div className="bg-white p-8 rounded-2xl border border-primary-200 shadow-soft"><div className="text-primary-400 font-bold text-sm uppercase tracking-wider">總法規數</div><div className="text-5xl font-bold text-primary-800 font-num mt-4">{stats.total}</div></div>
+                        <div className="bg-white p-8 rounded-2xl border border-primary-200 shadow-soft"><div className="text-emerald-500 font-bold text-sm uppercase tracking-wider">同步良好</div><div className="text-5xl font-bold text-emerald-600 font-num mt-4">{stats.total - stats.warning}</div></div>
+                        <div className="bg-white p-8 rounded-2xl border border-primary-200 shadow-soft"><div className="text-red-500 font-bold text-sm uppercase tracking-wider">需更新</div><div className="text-5xl font-bold text-red-600 font-num mt-4">{stats.warning}</div></div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-primary-200 shadow-soft overflow-hidden">
+                        <div className="px-8 py-6 border-b border-primary-100 font-bold text-lg text-primary-800 flex items-center gap-3"><span className="w-1.5 h-6 bg-red-500 rounded-full"></span> 待處理清單</div>
+                        <table className="w-full text-left">
+                            <thead className="bg-primary-50 text-primary-500 text-sm uppercase tracking-wider font-bold"><tr><th className="px-8 py-4">單位</th><th className="px-8 py-4">法規</th><th className="px-8 py-4">問題</th></tr></thead>
+                            <tbody className="divide-y divide-primary-100">
+                                {stats.list.length === 0 ? <tr><td colSpan="3" className="p-12 text-center text-primary-400 text-lg">目前皆已同步</td></tr> : stats.list.map((x,i)=><tr key={i} className="hover:bg-primary-50 transition-colors"><td className="px-8 py-4 text-primary-600 font-medium">{x.col} / {x.dept}</td><td className="px-8 py-4 font-bold text-primary-800">{x.name}</td><td className="px-8 py-4 text-red-500 font-bold flex items-center gap-2"><Icons.Alert className="text-base"/> {x.issue}</td></tr>)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem('reg_tracker_pro_v11');
+                try { return saved ? JSON.parse(saved) : []; } catch { return []; }
+            });
+            const [templates, setTemplates] = useState(() => {
+                const saved = localStorage.getItem('reg_tracker_templates');
+                try { return saved ? JSON.parse(saved) : DEFAULT_NOTE_TEMPLATES; } catch { return DEFAULT_NOTE_TEMPLATES; }
+            });
+            const [activeTab, setActiveTab] = useState({ type: 'dashboard' }); 
+            const [expandedColleges, setExpandedColleges] = useState({});
+            const [manageTemplates, setManageTemplates] = useState(false);
+
+            useEffect(() => localStorage.setItem('reg_tracker_pro_v11', JSON.stringify(data)), [data]);
+            useEffect(() => localStorage.setItem('reg_tracker_templates', JSON.stringify(templates)), [templates]);
+
+            const addCollege = () => {
+                const id = generateId();
+                setData([...data, { id, name: '新學院', departments: [] }]);
+                setExpandedColleges(prev => ({ ...prev, [id]: true }));
+            };
+
+            const addDept = (colId) => {
+                const newDepts = data.map(c => {
+                    if (c.id === colId) {
+                        return { ...c, departments: [...c.departments, { id: generateId(), name: '新學系', committeeRules: [], internshipRules: [] }] };
+                    }
+                    return c;
+                });
+                setData(newDepts);
+                setExpandedColleges(prev => ({ ...prev, [colId]: true }));
+            };
+
+            const updateCollege = (updated) => setData(data.map(c => c.id === updated.id ? updated : c));
+            const deleteCollege = (id) => confirm("刪除整個學院？") && setData(data.filter(c => c.id !== id));
+            
+            const toggleCollege = (id) => {
+                setExpandedColleges(prev => ({ ...prev, [id]: !prev[id] }));
+            };
+
+            const moveCol = (idx, dir) => {
+                const n = [...data];
+                const t = idx + dir;
+                if(t < 0 || t >= n.length) return;
+                [n[idx], n[t]] = [n[t], n[idx]];
+                setData(n);
+            };
+
+            const handleExport = () => {
+                if (typeof XLSX === 'undefined') { alert("匯出功能未載入"); return; }
+                const rows = [];
+                data.forEach(c => c.departments.forEach(d => {
+                    const push = (t, r) => rows.push({'學院': c.name, '學系': d.name, '類型': t, '法規名稱': r.name, '雲端版本': r.cloudVersion, '系統版本': r.systemVersion, '備註': r.note});
+                    (d.committeeRules||[]).forEach(r => push('委員會', r));
+                    (d.internshipRules||[]).forEach(r => push('實習', r));
+                }));
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Report");
+                XLSX.writeFile(wb, `Report.xlsx`);
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const parsed = JSON.parse(evt.target.result); 
+                        if(Array.isArray(parsed)) { setData(parsed); } else { alert("格式不符"); }
+                    } catch(err) { alert("讀取失敗"); }
+                };
+                reader.readAsText(file);
+            };
+
+            const handleJSONExport = () => {
+                const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+            
+            const activeCollege = activeTab.type === 'college' ? data.find(c => c.id === activeTab.id) : null;
+            const activeDepartment = activeTab.type === 'dept' 
+                ? data.find(c => c.departments.some(d => d.id === activeTab.id))?.departments.find(d => d.id === activeTab.id)
+                : null;
+            
+            const getParentCollege = (deptId) => data.find(c => c.departments.some(d => d.id === deptId));
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-white font-sans text-primary-800">
+                    <aside className="w-72 bg-white border-r border-primary-200 flex flex-col z-20 shadow-sm relative">
+                        <div className="p-6 border-b border-primary-100 flex items-center gap-4">
+                            <div className="text-primary-600 bg-primary-50 p-2 rounded-xl"><Icons.ScaleBalanced className="text-2xl"/></div>
+                            <div>
+                                <div className="text-[10px] font-bold text-primary-400 uppercase tracking-widest leading-none mb-1">東海大學實習與學生成就中心</div>
+                                <h1 className="text-lg font-bold text-primary-800 leading-tight">系所法規控管系統</h1>
+                            </div>
+                        </div>
+                        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                            <button onClick={()=>setActiveTab({type: 'dashboard'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-4 ${activeTab.type==='dashboard'?'active':''}`}><Icons.Home className="text-base"/> 總表儀表板</button>
+                            
+                            <div className="px-4 text-[10px] font-bold uppercase text-primary-400 tracking-wider mb-2 flex justify-between items-center">
+                                <span>學院列表</span>
+                                <button onClick={addCollege} className="text-primary-600 hover:bg-primary-50 p-1 rounded"><Icons.Plus className="text-base"/></button>
+                            </div>
+
+                            {data.map((c, idx) => (
+                                <div key={c.id} className="mb-1">
+                                    <div className={`nav-item flex items-center justify-between px-4 py-2 text-sm font-medium cursor-pointer ${activeTab.id===c.id && activeTab.type==='college' ? 'active' : ''}`}
+                                        onClick={() => toggleCollege(c.id)}>
+                                        <div className="flex items-center gap-2 truncate flex-1" onClick={(e) => { e.stopPropagation(); setActiveTab({ type: 'college', id: c.id }); }}>
+                                            {expandedColleges[c.id] ? <Icons.ChevronDown className="text-xs text-primary-400"/> : <Icons.ChevronRight className="text-xs text-primary-400"/>}
+                                            <div className="flex gap-2 items-center"><Icons.Building className="text-sm text-primary-400" /> <span className="truncate">{c.name}</span></div>
+                                        </div>
+                                        <div className="hidden group-hover:flex gap-1" onClick={e=>e.stopPropagation()}>
+                                            <button onClick={()=>moveCol(idx,-1)} disabled={idx===0} className={`p-1 rounded ${idx===0?'text-primary-300':'hover:text-primary-600 hover:bg-white shadow-sm'}`}><Icons.ArrowUp className="text-xs"/></button>
+                                            <button onClick={()=>moveCol(idx,1)} disabled={idx===data.length-1} className={`p-1 rounded ${idx===data.length-1?'text-primary-300':'hover:text-primary-600 hover:bg-white shadow-sm'}`}><Icons.ArrowDown className="text-xs"/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); addDept(c.id); }} className="p-1 text-primary-400 hover:text-primary-600 hover:bg-white shadow-sm" title="新增學系"><Icons.Plus className="text-xs"/></button>
+                                        </div>
+                                    </div>
+                                    
+                                    {expandedColleges[c.id] && (
+                                        <div className="mt-1 space-y-0.5">
+                                            {c.departments.map(d => (
+                                                <button 
+                                                    key={d.id} 
+                                                    onClick={() => setActiveTab({ type: 'dept', id: d.id })}
+                                                    className={`w-full text-left pl-12 pr-4 py-2 text-sm transition-colors truncate block border-l-2 ml-4 flex items-center gap-2 ${activeTab.id === d.id ? 'border-primary-500 text-primary-600 font-bold bg-primary-50/50' : 'border-primary-100 text-primary-500 hover:border-primary-300 hover:text-primary-700'}`}
+                                                >
+                                                    <Icons.Dept className="text-sm opacity-70" /> {d.name}
+                                                </button>
+                                            ))}
+                                            {c.departments.length === 0 && (
+                                                <div className="pl-10 pr-4 py-2 text-xs text-primary-400 italic">尚無學系</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t border-primary-100 flex gap-2">
+                             <label className="cursor-pointer flex-1 bg-white border border-primary-200 hover:bg-primary-50 text-primary-600 py-2.5 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-colors shadow-sm"><Icons.Upload className="text-sm"/> 匯入<input type="file" className="hidden" onChange={handleImport}/></label>
+                             <button onClick={handleJSONExport} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold py-2.5 rounded-lg flex justify-center items-center gap-2 transition-colors shadow-md shadow-primary-500/20"><Icons.Save className="text-sm"/> 備份</button>
+                        </div>
+                    </aside>
+                    <main className="flex-1 flex flex-col min-w-0 bg-[#f4f7fb] overflow-hidden relative">
+                        <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
+                            {activeTab.type === 'dashboard' ? (
+                                <Dashboard data={data}/>
+                            ) : activeTab.type === 'college' && activeCollege ? (
+                                <div className="max-w-4xl mx-auto animate-fade-in pb-20">
+                                    <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 mb-8">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-16 h-16 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600"><Icons.Building className="text-2xl"/></div>
+                                            <div className="flex-1">
+                                                <div className="text-xs font-bold text-primary-400 uppercase tracking-widest mb-1">學院管理</div>
+                                                <input 
+                                                    value={activeCollege.name} 
+                                                    onChange={(e)=>updateCollege({...activeCollege, name:e.target.value})} 
+                                                    className="ghost-input text-3xl font-bold text-primary-800 w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <h3 className="font-bold text-primary-700 text-lg border-b border-primary-100 pb-2">所屬學系 ({activeCollege.departments.length})</h3>
+                                            {activeCollege.departments.map((d, i) => (
+                                                <div key={d.id} className="flex items-center justify-between p-4 bg-primary-50 rounded-lg border border-primary-100 hover:border-primary-200 transition-colors group">
+                                                    <span className="font-bold text-primary-700 flex items-center gap-2"><Icons.Dept className="text-primary-400"/> {d.name}</span>
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => setActiveTab({ type: 'dept', id: d.id })} className="text-xs bg-white border border-primary-200 px-3 py-1.5 rounded-lg font-bold text-primary-600 hover:bg-primary-50 btn-action">管理法規</button>
+                                                        <button onClick={() => {
+                                                            if(confirm("刪除學系?")) {
+                                                                updateCollege({...activeCollege, departments: activeCollege.departments.filter(dept => dept.id !== d.id)});
+                                                            }
+                                                        }} className="text-primary-400 hover:text-red-500 p-1"><Icons.Trash className="text-base"/></button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => addDept(activeCollege.id)} className="w-full py-4 border-2 border-dashed border-primary-300 rounded-lg text-primary-400 font-bold hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-all flex justify-center items-center gap-2 btn-action"><Icons.Plus className="text-base"/> 新增學系</button>
+                                        </div>
+                                        <div className="mt-8 pt-6 border-t border-primary-100 flex justify-end">
+                                            <button onClick={() => deleteCollege(activeCollege.id)} className="text-red-500 hover:text-red-700 text-sm font-bold flex items-center gap-2 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors btn-action"><Icons.Trash className="text-base"/> 刪除此學院</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : activeDepartment ? (
+                                <div className="max-w-[1600px] mx-auto animate-fade-in pb-20">
+                                    <div className="flex justify-between items-center mb-10 pb-6 border-b border-primary-200">
+                                        <div className="flex items-center gap-5">
+                                            <div className="w-14 h-14 bg-white rounded-2xl shadow-soft border border-primary-100 flex items-center justify-center text-primary-600"><Icons.Dept className="text-2xl"/></div>
+                                            <div>
+                                                <div className="text-xs font-bold text-primary-400 uppercase tracking-widest mb-1">{getParentCollege(activeDepartment.id)?.name}</div>
+                                                <input value={activeDepartment.name} onChange={(e)=>{
+                                                    const parentCol = getParentCollege(activeDepartment.id);
+                                                    const newDepts = parentCol.departments.map(d => d.id === activeDepartment.id ? { ...d, name: e.target.value } : d);
+                                                    updateCollege({ ...parentCol, departments: newDepts });
+                                                }} className="ghost-input text-3xl font-bold text-primary-800"/>
+                                            </div>
+                                        </div>
+                                        <button onClick={()=>{
+                                            if(confirm("刪除學系?")) {
+                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                updateCollege({ ...parentCol, departments: parentCol.departments.filter(d => d.id !== activeDepartment.id) });
+                                                setActiveTab({ type: 'college', id: parentCol.id });
+                                            }
+                                        }} className="text-primary-400 hover:text-red-600 text-sm font-bold px-5 py-2.5 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-2 btn-action"><Icons.Trash className="text-base"/> 刪除學系</button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+                                        <div>
+                                            <h4 className="font-bold text-primary-700 mb-6 flex items-center gap-3 border-b border-primary-200 pb-3 text-lg">委員會設置要點 <span className="text-xs bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full">{(activeDepartment.committeeRules||[]).length}</span></h4>
+                                            <div className="space-y-6">
+                                                {(activeDepartment.committeeRules||[]).map((r, i) => (
+                                                    <RegulationRow 
+                                                        key={r.id} reg={r} templates={templates} onManageTemplates={()=>setManageTemplates(true)}
+                                                        onUpdate={u=>{
+                                                            const parentCol = getParentCollege(activeDepartment.id);
+                                                            const newDepts = parentCol.departments.map(d => {
+                                                                if(d.id === activeDepartment.id) {
+                                                                    return { ...d, committeeRules: d.committeeRules.map(x=>x.id===r.id?u:x) };
+                                                                }
+                                                                return d;
+                                                            });
+                                                            updateCollege({...parentCol, departments: newDepts})
+                                                        }} 
+                                                        onDelete={()=>confirm("刪除?") && (() => {
+                                                            const parentCol = getParentCollege(activeDepartment.id);
+                                                            const newDepts = parentCol.departments.map(d => {
+                                                                if(d.id === activeDepartment.id) {
+                                                                    return { ...d, committeeRules: d.committeeRules.filter(x=>x.id!==r.id) };
+                                                                }
+                                                                return d;
+                                                            });
+                                                            updateCollege({...parentCol, departments: newDepts});
+                                                        })()}
+                                                        onMoveUp={() => {
+                                                            if(i > 0) {
+                                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                                const newDepts = parentCol.departments.map(d => {
+                                                                    if(d.id === activeDepartment.id) {
+                                                                        const list = [...d.committeeRules];
+                                                                        [list[i], list[i-1]] = [list[i-1], list[i]];
+                                                                        return { ...d, committeeRules: list };
+                                                                    }
+                                                                    return d;
+                                                                });
+                                                                updateCollege({...parentCol, departments: newDepts});
+                                                            }
+                                                        }}
+                                                        onMoveDown={() => {
+                                                            if(i < activeDepartment.committeeRules.length - 1) {
+                                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                                const newDepts = parentCol.departments.map(d => {
+                                                                    if(d.id === activeDepartment.id) {
+                                                                        const list = [...d.committeeRules];
+                                                                        [list[i], list[i+1]] = [list[i+1], list[i]];
+                                                                        return { ...d, committeeRules: list };
+                                                                    }
+                                                                    return d;
+                                                                });
+                                                                updateCollege({...parentCol, departments: newDepts});
+                                                            }
+                                                        }}
+                                                        isFirst={i===0} isLast={i===activeDepartment.committeeRules.length-1}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <button onClick={()=>{
+                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                const newDepts = parentCol.departments.map(d => {
+                                                    if(d.id === activeDepartment.id) {
+                                                        return { ...d, committeeRules: [...(d.committeeRules||[]), {id:generateId(), name:'', history:[], cloudVersion:'', systemVersion:''}] };
+                                                    }
+                                                    return d;
+                                                });
+                                                updateCollege({...parentCol, departments: newDepts});
+                                            }} className="w-full py-4 border-2 border-dashed border-primary-300 text-primary-400 rounded-lg hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-all font-bold flex justify-center items-center gap-2 mt-6 btn-action"><Icons.Plus className="text-base"/> 新增要點</button>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="font-bold text-primary-700 mb-6 flex items-center gap-3 border-b border-primary-200 pb-3 text-lg">實習辦法 <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full">{(activeDepartment.internshipRules||[]).length}</span></h4>
+                                            <div className="space-y-6">
+                                                {(activeDepartment.internshipRules||[]).map((r, i) => (
+                                                    <RegulationRow 
+                                                        key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates}
+                                                        onUpdate={u=>{
+                                                            const parentCol = getParentCollege(activeDepartment.id);
+                                                            const newDepts = parentCol.departments.map(d => {
+                                                                if(d.id === activeDepartment.id) {
+                                                                    return { ...d, internshipRules: d.internshipRules.map(x=>x.id===r.id?u:x) };
+                                                                }
+                                                                return d;
+                                                            });
+                                                            updateCollege({...parentCol, departments: newDepts})
+                                                        }} 
+                                                        onDelete={()=>confirm("刪除?") && (() => {
+                                                            const parentCol = getParentCollege(activeDepartment.id);
+                                                            const newDepts = parentCol.departments.map(d => {
+                                                                if(d.id === activeDepartment.id) {
+                                                                    return { ...d, internshipRules: d.internshipRules.filter(x=>x.id!==r.id) };
+                                                                }
+                                                                return d;
+                                                            });
+                                                            updateCollege({...parentCol, departments: newDepts});
+                                                        })()}
+                                                        onMoveUp={() => {
+                                                            if(i > 0) {
+                                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                                const newDepts = parentCol.departments.map(d => {
+                                                                    if(d.id === activeDepartment.id) {
+                                                                        const list = [...d.internshipRules];
+                                                                        [list[i], list[i-1]] = [list[i-1], list[i]];
+                                                                        return { ...d, internshipRules: list };
+                                                                    }
+                                                                    return d;
+                                                                });
+                                                                updateCollege({...parentCol, departments: newDepts});
+                                                            }
+                                                        }}
+                                                        onMoveDown={() => {
+                                                            if(i < activeDepartment.internshipRules.length - 1) {
+                                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                                const newDepts = parentCol.departments.map(d => {
+                                                                    if(d.id === activeDepartment.id) {
+                                                                        const list = [...d.internshipRules];
+                                                                        [list[i], list[i+1]] = [list[i+1], list[i]];
+                                                                        return { ...d, internshipRules: list };
+                                                                    }
+                                                                    return d;
+                                                                });
+                                                                updateCollege({...parentCol, departments: newDepts});
+                                                            }
+                                                        }}
+                                                        isFirst={i===0} isLast={i===activeDepartment.internshipRules.length-1}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <button onClick={()=>{
+                                                const parentCol = getParentCollege(activeDepartment.id);
+                                                const newDepts = parentCol.departments.map(d => {
+                                                    if(d.id === activeDepartment.id) {
+                                                        return { ...d, internshipRules: [...(d.internshipRules||[]), {id:generateId(), name:'', history:[], cloudVersion:'', systemVersion:''}] };
+                                                    }
+                                                    return d;
+                                                });
+                                                updateCollege({...parentCol, departments: newDepts});
+                                            }} className="w-full py-4 border-2 border-dashed border-primary-300 text-primary-400 rounded-lg hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-all font-bold flex justify-center items-center gap-2 mt-6 btn-action"><Icons.Plus className="text-base"/> 新增辦法</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </main>
+                    {manageTemplates && <TemplateManager templates={templates} onChange={setTemplates} onClose={()=>setManageTemplates(false)} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
