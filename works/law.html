@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>系所法規控管系統 Pro V18</title>
+    <title>系所法規控管系統 Pro V19</title>
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -111,7 +111,8 @@
             Dot: (p) => <i className={`fa-solid fa-circle ${p.className||''}`}></i>,
             FileCheck: (p) => <i className={`fa-solid fa-file-circle-check ${p.className||''}`}></i>,
             ThumbUp: (p) => <i className={`fa-solid fa-thumbs-up ${p.className||''}`}></i>,
-            Wrench: (p) => <i className={`fa-solid fa-screwdriver-wrench ${p.className||''}`}></i>
+            Wrench: (p) => <i className={`fa-solid fa-screwdriver-wrench ${p.className||''}`}></i>,
+            Gavel: (p) => <i className={`fa-solid fa-gavel ${p.className||''}`}></i>
         };
 
         const DEFAULT_NOTE_TEMPLATES = [
@@ -215,7 +216,6 @@
             const handleBlur = () => { const p = parseROC(val); if(p) { onChange(p); setVal(toROC(p)); } else if(!val) { onChange(''); } else { setVal(toROC(dateValue)); } };
             const clearDate = (e) => { e.stopPropagation(); onChange(''); setVal(''); };
 
-            // Glassmorphism style
             let statusClass = "bg-white/50 backdrop-blur-sm border-white/60 shadow-sm focus-within:bg-white/95 focus-within:shadow-md focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300";
             let badge = null;
 
@@ -250,7 +250,6 @@
             );
         };
 
-        // --- Template Manager Modal ---
         const TemplateManager = ({ templates, onClose, onChange }) => {
             const [local, setLocal] = useState(templates);
             const save = () => { onChange(local); onClose(); };
@@ -313,7 +312,6 @@
             );
         };
 
-        // --- Timeline Component (V17 Perfected - Center Aligned via Transform) ---
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
@@ -333,13 +331,11 @@
                     </div>
                     
                     <div className="relative space-y-8 pl-4">
-                        {/* Vertical Line Fix: 使用 left-6 (24px) 作為中心軸，配合 -translate-x-1/2 強制置中 */}
                         <div className="absolute left-6 top-2 bottom-4 w-[2px] bg-gray-200 -translate-x-1/2"></div>
 
                         {sortedHistory.map((h, i) => {
                              const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
                              
-                             // Direct Revision View
                              if (isDirect) {
                                  let displayLabel = h.label;
                                  if (h.univDate) {
@@ -352,9 +348,7 @@
 
                                  return (
                                     <div key={h.id} className="relative pl-12">
-                                        {/* Dot Fix */}
                                         <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
-                                        
                                         <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm relative">
                                             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 mb-2">
                                                 <div className="flex flex-col">
@@ -369,7 +363,6 @@
                                  );
                              }
 
-                             // Standard Process View
                              const steps = [];
                              if (h.deptMeetingType !== 'none') {
                                  steps.push({ key: 'dept', label: '系', suffix: h.deptMeetingType === 'internship' ? '實習委員會' : '務會議', date: h.deptDate });
@@ -379,45 +372,28 @@
 
                              return (
                                 <div key={h.id} className="relative pl-12">
-                                    {/* Dot Fix */}
                                     <div className={`absolute left-6 top-3 w-4 h-4 rounded-full border-2 border-white box-content shadow-timeline z-10 -translate-x-1/2 ${i===0 ? 'bg-primary-600' : 'bg-gray-400'}`}></div>
-                                    
                                     <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 shadow-sm">
                                         <div className="flex justify-between items-center mb-4">
                                             <span className="font-bold text-slate-800">{h.label || '修正案'}</span>
                                             <span className="text-xs text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full">一般修法</span>
                                         </div>
-
                                         <div className="flex items-center justify-between relative px-2">
-                                            {/* Horizontal Connector Line */}
                                             <div className="absolute top-2.5 left-[16%] right-[16%] h-[2px] bg-slate-300 z-0"></div>
-                                            
                                             {steps.map((step, idx) => {
                                                 const hasDate = !!step.date;
                                                 const isWarning = !hasDate;
-                                                
                                                 return (
                                                     <div key={step.key} className="flex flex-col items-center flex-1 relative z-10">
-                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 transition-colors duration-300 z-10
-                                                            ${hasDate ? 'bg-primary-600 border-primary-600 text-white' : (isWarning ? 'bg-white border-red-500 text-red-500' : 'bg-white border-gray-400 text-gray-400')}
-                                                        `}>
+                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 transition-colors duration-300 z-10 ${hasDate ? 'bg-primary-600 border-primary-600 text-white' : (isWarning ? 'bg-white border-red-500 text-red-500' : 'bg-white border-gray-400 text-gray-400')}`}>
                                                             {hasDate ? <Icons.Check className="text-[8px]"/> : (isWarning && step.key !== 'univ' ? <span className="font-bold">!</span> : (idx + 1))}
                                                         </div>
-                                                        <div className={`mt-2 text-xs font-bold text-center ${hasDate ? 'text-primary-700' : 'text-gray-500'}`}>
-                                                            {step.label}{step.suffix}
-                                                        </div>
-                                                        <div className="mt-0.5 min-h-[16px]">
-                                                            {hasDate ? (
-                                                                <span className="text-[10px] font-num text-slate-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap">
-                                                                    {toROC(step.date)}
-                                                                </span>
-                                                            ) : null}
-                                                        </div>
+                                                        <div className={`mt-2 text-xs font-bold text-center ${hasDate ? 'text-primary-700' : 'text-gray-500'}`}>{step.label}{step.suffix}</div>
+                                                        <div className="mt-0.5 min-h-[16px]">{hasDate ? (<span className="text-[10px] font-num text-slate-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap">{toROC(step.date)}</span>) : null}</div>
                                                     </div>
                                                 );
                                             })}
                                         </div>
-                                        
                                         {h.note && <div className="mt-4 pt-2 border-t border-gray-200 text-xs text-gray-500 whitespace-pre-wrap">{h.note}</div>}
                                     </div>
                                 </div>
@@ -433,7 +409,6 @@
             const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
             const templateBtnRef = useRef(null);
 
-            // Latest logic
             const latest = useMemo(() => {
                 let max = '', label = '無紀錄', stage = 'none', type = 'standard';
                 (reg.history||[]).forEach(h => {
@@ -525,12 +500,10 @@
                             {histOpen && (
                                 <div className="space-y-4 animate-fade-in">
                                     <Timeline history={reg.history} />
-                                    
                                     {(reg.history||[]).map((h,i) => {
                                         const isDirect = h.type !== 'standard' && h.type !== undefined;
                                         return (
                                             <div key={h.id} className="bg-primary-50 rounded-lg p-4 text-sm border border-primary-100 flex flex-col gap-3">
-                                                {/* Row 1: Label & Type & Delete */}
                                                 <div className="flex justify-between items-start gap-4">
                                                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         <div className="space-y-1">
@@ -546,8 +519,6 @@
                                                     </div>
                                                     <button onClick={()=>delHist(i)} className="text-gray-300 hover:text-red-500 p-1.5 rounded hover:bg-white transition-all"><Icons.Trash className="text-base"/></button>
                                                 </div>
-
-                                                {/* Row 2: Dates (Equal Width) with Verification Buttons */}
                                                 {isDirect ? (
                                                     <div className="grid grid-cols-3 gap-4">
                                                         <div className="space-y-1">
@@ -564,7 +535,6 @@
                                                     </div>
                                                 ) : (
                                                     <div className="grid grid-cols-3 gap-4">
-                                                        {/* 系級 */}
                                                         <div className="space-y-1 relative">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">系級</label>
@@ -577,7 +547,6 @@
                                                                 <VerificationButton isVerified={h.deptVerified} onToggle={()=>updateHist(i, 'deptVerified', !h.deptVerified)} label="系級紀錄確認" />
                                                             </div>
                                                         </div>
-                                                        {/* 院級 */}
                                                         <div className="space-y-1 relative">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">院級</label>
@@ -590,7 +559,6 @@
                                                                 <VerificationButton isVerified={h.collegeVerified} onToggle={()=>updateHist(i, 'collegeVerified', !h.collegeVerified)} label="院級紀錄確認" />
                                                             </div>
                                                         </div>
-                                                        {/* 校級 */}
                                                         <div className="space-y-1">
                                                             <div className="flex justify-between items-end">
                                                                 <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">校級</label>
@@ -603,8 +571,6 @@
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                {/* Row 3: Note */}
                                                 <div className="space-y-1">
                                                     <label className="text-[10px] font-bold text-primary-400 uppercase">備註說明</label>
                                                     <textarea className="clean-input w-full text-xs text-primary-700 h-10 resize-y" value={h.note||''} onChange={e=>updateHist(i,'note',e.target.value)} placeholder="備註..."></textarea>
@@ -618,7 +584,6 @@
                         </div>
                     </div>
 
-                    {/* Check Result Section (Audit Status) */}
                     <div className="mt-6 pt-4 border-t border-primary-100">
                         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
                             <div className="text-xs font-bold text-primary-500 uppercase flex items-center gap-2">
@@ -630,65 +595,22 @@
                                     let style = "bg-white text-gray-500 border-gray-200 hover:bg-gray-100";
                                     let icon = <Icons.Dot className="text-[8px] mr-1"/>;
                                     let label = "待確認";
-
-                                    if(status === 'fix') {
-                                        label = "須補正";
-                                        icon = <Icons.Alert className="text-xs mr-1"/>;
-                                        if(isActive) style = "bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30";
-                                    } else if (status === 'pass') {
-                                        label = "通過";
-                                        icon = <Icons.Check className="text-xs mr-1"/>;
-                                        if(isActive) style = "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30";
-                                    } else {
-                                        if(isActive) style = "bg-gray-600 text-white border-gray-600 shadow-md shadow-gray-500/30";
-                                    }
-
-                                    return (
-                                        <button 
-                                            key={status}
-                                            onClick={() => onUpdate({...reg, checkStatus: status})}
-                                            className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center ${style}`}
-                                        >
-                                            {icon} {label}
-                                        </button>
-                                    );
+                                    if(status === 'fix') { label = "須補正"; icon = <Icons.Alert className="text-xs mr-1"/>; if(isActive) style = "bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30"; }
+                                    else if (status === 'pass') { label = "通過"; icon = <Icons.Check className="text-xs mr-1"/>; if(isActive) style = "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30"; }
+                                    else { if(isActive) style = "bg-gray-600 text-white border-gray-600 shadow-md shadow-gray-500/30"; }
+                                    return <button key={status} onClick={() => onUpdate({...reg, checkStatus: status})} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center ${style}`}>{icon} {label}</button>;
                                 })}
                             </div>
                         </div>
                     </div>
-
-                    {/* Note & Templates Section (Moved to Bottom) - Modified Styles */}
                     <div className="mt-4 pt-4 border-t border-primary-100 relative">
                         <div className="flex justify-between items-center mb-2">
                             <label className="text-[10px] font-bold text-primary-400 uppercase">整體備註</label>
-                            <button 
-                                ref={templateBtnRef}
-                                onClick={()=>setTemplatePickerOpen(!templatePickerOpen)}
-                                className="text-xs text-primary-500 font-bold hover:bg-primary-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"
-                            >
-                                <Icons.Clipboard className="text-xs"/> 引用模板
-                            </button>
+                            <button ref={templateBtnRef} onClick={()=>setTemplatePickerOpen(!templatePickerOpen)} className="text-xs text-primary-500 font-bold hover:bg-primary-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"><Icons.Clipboard className="text-xs"/> 引用模板</button>
                         </div>
                         <div className="relative">
-                            <textarea 
-                                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-slate-700 min-h-[80px] focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all resize-y placeholder-gray-400" 
-                                value={reg.note||''} 
-                                onChange={e=>onUpdate({...reg, note:e.target.value})} 
-                                placeholder="填寫法規整體備註..."
-                            ></textarea>
-                            
-                            {templatePickerOpen && (
-                                <NoteTemplatePicker 
-                                    templates={templates} 
-                                    onManage={onManageTemplates} 
-                                    onSelect={t=>{
-                                        onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t});
-                                        setTemplatePickerOpen(false);
-                                    }} 
-                                    onClose={()=>setTemplatePickerOpen(false)} 
-                                    safeAreaRef={templateBtnRef}
-                                />
-                            )}
+                            <textarea className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-slate-700 min-h-[80px] focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all resize-y placeholder-gray-400" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="填寫法規整體備註..."></textarea>
+                            {templatePickerOpen && <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>{ onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t}); setTemplatePickerOpen(false); }} onClose={()=>setTemplatePickerOpen(false)} safeAreaRef={templateBtnRef}/>}
                         </div>
                     </div>
                 </div>
@@ -702,15 +624,12 @@
                 let max = ''; (r.history||[]).forEach(h => { if(h.univDate>max) max=h.univDate; if(h.type!=='direct' && h.type!=='name_change' && h.type!=='format'){if(h.collegeDate>max) max=h.collegeDate; if(h.deptDate>max) max=h.deptDate;} });
                 if (!max) return false; return (!r.cloudVersion || r.cloudVersion < max) || (!r.systemVersion || r.systemVersion < max);
             }).length;
-
             const moveRule = (type, idx, dir) => {
-                const list = [...dept[type]];
-                const target = idx + dir;
+                const list = [...dept[type]]; const target = idx + dir;
                 if(target < 0 || target >= list.length) return;
                 [list[idx], list[target]] = [list[target], list[idx]];
                 onUpdate({...dept, [type]: list});
             };
-
             return (
                 <div className="bg-white border border-primary-200 rounded-xl shadow-sm mb-8 overflow-hidden">
                     <div className="bg-white px-8 py-5 flex justify-between items-center cursor-pointer hover:bg-slate-50 border-b border-primary-100 transition-colors" onClick={()=>setIsCollapsed(!isCollapsed)}>
@@ -732,26 +651,14 @@
                             <div>
                                 <h4 className="font-bold text-primary-700 mb-4 flex items-center gap-3 border-b border-primary-200 pb-3 text-lg">委員會設置要點 <span className="text-xs bg-primary-100 text-primary-700 px-2.5 py-0.5 rounded-full">{(dept.committeeRules||[]).length}</span></h4>
                                 {(dept.committeeRules||[]).map((r, i) => (
-                                    <RegulationRow 
-                                        key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates}
-                                        onUpdate={u=>onUpdate({...dept, committeeRules: dept.committeeRules.map(x=>x.id===r.id?u:x)})} 
-                                        onDelete={()=>confirm("刪除?")&&onUpdate({...dept, committeeRules: dept.committeeRules.filter(x=>x.id!==r.id)})}
-                                        onMoveUp={()=>moveRule('committeeRules', i, -1)} onMoveDown={()=>moveRule('committeeRules', i, 1)}
-                                        isFirst={i===0} isLast={i===dept.committeeRules.length-1}
-                                    />
+                                    <RegulationRow key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates} onUpdate={u=>onUpdate({...dept, committeeRules: dept.committeeRules.map(x=>x.id===r.id?u:x)})} onDelete={()=>confirm("刪除?")&&onUpdate({...dept, committeeRules: dept.committeeRules.filter(x=>x.id!==r.id)})} onMoveUp={()=>moveRule('committeeRules', i, -1)} onMoveDown={()=>moveRule('committeeRules', i, 1)} isFirst={i===0} isLast={i===dept.committeeRules.length-1} />
                                 ))}
                                 <button onClick={()=>onUpdate({...dept, committeeRules: [...(dept.committeeRules||[]), {id:generateId(), name:'', history:[], cloudVersion:'', systemVersion:''}]})} className="w-full py-3 border-2 border-dashed border-primary-300 text-primary-400 rounded-xl hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-all font-bold flex justify-center items-center gap-2 mt-4"><Icons.Plus className="w-5 h-5"/> 新增要點</button>
                             </div>
                             <div>
                                 <h4 className="font-bold text-primary-700 mb-4 flex items-center gap-3 border-b border-primary-200 pb-3 text-lg">實習辦法 <span className="text-xs bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full">{(dept.internshipRules||[]).length}</span></h4>
                                 {(dept.internshipRules||[]).map((r, i) => (
-                                    <RegulationRow 
-                                        key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates}
-                                        onUpdate={u=>onUpdate({...dept, internshipRules: dept.internshipRules.map(x=>x.id===r.id?u:x)})} 
-                                        onDelete={()=>confirm("刪除?")&&onUpdate({...dept, internshipRules: dept.internshipRules.filter(x=>x.id!==r.id)})}
-                                        onMoveUp={()=>moveRule('internshipRules', i, -1)} onMoveDown={()=>moveRule('internshipRules', i, 1)}
-                                        isFirst={i===0} isLast={i===dept.internshipRules.length-1}
-                                    />
+                                    <RegulationRow key={r.id} reg={r} templates={templates} onManageTemplates={onManageTemplates} onUpdate={u=>onUpdate({...dept, internshipRules: dept.internshipRules.map(x=>x.id===r.id?u:x)})} onDelete={()=>confirm("刪除?")&&onUpdate({...dept, internshipRules: dept.internshipRules.filter(x=>x.id!==r.id)})} onMoveUp={()=>moveRule('internshipRules', i, -1)} onMoveDown={()=>moveRule('internshipRules', i, 1)} isFirst={i===0} isLast={i===dept.internshipRules.length-1} />
                                 ))}
                                 <button onClick={()=>onUpdate({...dept, internshipRules: [...(dept.internshipRules||[]), {id:generateId(), name:'', history:[], cloudVersion:'', systemVersion:''}]})} className="w-full py-3 border-2 border-dashed border-primary-300 text-primary-400 rounded-xl hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all font-bold flex justify-center items-center gap-2 mt-4"><Icons.Plus className="w-5 h-5"/> 新增辦法</button>
                             </div>
@@ -778,7 +685,6 @@
                 }));
                 return { total, warning, list };
             }, [data]);
-
             return (
                 <div className="max-w-6xl mx-auto space-y-10 animate-fade-in p-10">
                     <div className="grid grid-cols-3 gap-8">
@@ -799,6 +705,160 @@
             );
         };
 
+        // --- NEW COMPONENT: SchoolMeetingView ---
+        const SchoolMeetingView = ({ meetings, onUpdateMeetings, fullData }) => {
+            const [selectedId, setSelectedId] = useState(null);
+            
+            // Sort meetings by date descending
+            const sortedMeetings = useMemo(() => {
+                return [...meetings].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+            }, [meetings]);
+
+            const activeMeeting = useMemo(() => meetings.find(m => m.id === selectedId) || sortedMeetings[0], [meetings, selectedId, sortedMeetings]);
+            
+            // Auto-group logic
+            const matchedRegulations = useMemo(() => {
+                if (!activeMeeting || !activeMeeting.date) return [];
+                const list = [];
+                fullData.forEach(col => {
+                    col.departments.forEach(dept => {
+                        [...dept.committeeRules, ...dept.internshipRules].forEach(rule => {
+                            (rule.history || []).forEach(h => {
+                                if (h.univDate === activeMeeting.date) {
+                                    list.push({
+                                        id: rule.id,
+                                        colName: col.name,
+                                        deptName: dept.name,
+                                        ruleName: rule.name,
+                                        histLabel: h.label,
+                                        histType: h.type,
+                                        note: h.note
+                                    });
+                                }
+                            });
+                        });
+                    });
+                });
+                return list;
+            }, [activeMeeting, fullData]);
+
+            const addMeeting = () => {
+                const newId = generateId();
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                onUpdateMeetings([...meetings, { id: newId, name: '新校級會議', date: dateStr, note: '' }]);
+                setSelectedId(newId);
+            };
+
+            const updateActive = (field, val) => {
+                onUpdateMeetings(meetings.map(m => m.id === activeMeeting.id ? { ...m, [field]: val } : m));
+            };
+
+            const deleteActive = () => {
+                if(confirm("確定刪除此會議紀錄？")) {
+                    onUpdateMeetings(meetings.filter(m => m.id !== activeMeeting.id));
+                    setSelectedId(null);
+                }
+            };
+
+            return (
+                <div className="flex h-full animate-fade-in">
+                    {/* Left List */}
+                    <div className="w-80 border-r border-primary-200 bg-white flex flex-col h-full">
+                        <div className="p-6 border-b border-primary-100 flex justify-between items-center bg-primary-50">
+                            <h2 className="font-bold text-primary-800">會議列表</h2>
+                            <button onClick={addMeeting} className="p-2 bg-white text-blue-600 rounded-lg shadow-sm hover:bg-blue-50 transition-colors"><Icons.Plus className="text-sm"/></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {sortedMeetings.map(m => (
+                                <div 
+                                    key={m.id} 
+                                    onClick={() => setSelectedId(m.id)}
+                                    className={`p-4 rounded-xl cursor-pointer border transition-all ${activeMeeting?.id === m.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100' : 'bg-white border-primary-100 hover:border-primary-300'}`}
+                                >
+                                    <div className="text-[10px] font-bold text-gray-400 font-num mb-1">{toROC(m.date)}</div>
+                                    <div className={`font-bold text-sm ${activeMeeting?.id === m.id ? 'text-blue-800' : 'text-primary-700'}`}>{m.name}</div>
+                                </div>
+                            ))}
+                            {sortedMeetings.length === 0 && <div className="text-center text-xs text-gray-400 py-8">點擊 + 新增會議</div>}
+                        </div>
+                    </div>
+
+                    {/* Right Details */}
+                    <div className="flex-1 overflow-y-auto bg-[#f4f7fb] p-8">
+                        {activeMeeting ? (
+                            <div className="max-w-4xl mx-auto">
+                                <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 mb-8">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600"><Icons.Gavel className="text-2xl"/></div>
+                                            <div>
+                                                <div className="text-xs font-bold text-primary-400 uppercase tracking-widest mb-1">校級實習委員會</div>
+                                                <input value={activeMeeting.name} onChange={e=>updateActive('name', e.target.value)} className="bg-transparent text-2xl font-bold text-primary-800 outline-none border-b border-transparent hover:border-gray-200 focus:border-blue-300 transition-colors w-full"/>
+                                            </div>
+                                        </div>
+                                        <button onClick={deleteActive} className="text-gray-300 hover:text-red-500 p-2"><Icons.Trash className="text-lg"/></button>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div className="space-y-1">
+                                            <DateInput label="會議召開日期" dateValue={activeMeeting.date} onChange={v=>updateActive('date', v)} />
+                                            <div className="text-[10px] text-gray-400 px-1 pt-1">* 系統將自動抓取所有法規中「校級通過日期」為此日期的項目</div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">會議備註</label>
+                                            <textarea className="clean-input w-full text-sm text-primary-700 h-[52px] resize-none bg-gray-50/50 p-2 rounded border border-gray-100" value={activeMeeting.note} onChange={e=>updateActive('note', e.target.value)} placeholder="備註事項..."></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-bold text-primary-800 mb-4 flex items-center gap-2">
+                                        通過法規一覽 
+                                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-num">{matchedRegulations.length}</span>
+                                    </h3>
+                                    
+                                    {matchedRegulations.length === 0 ? (
+                                        <div className="bg-white border-2 border-dashed border-primary-200 rounded-xl p-12 text-center text-primary-400 flex flex-col items-center gap-2">
+                                            <Icons.ScaleBalanced className="text-3xl opacity-20"/>
+                                            <p>此日期尚無任何法規通過紀錄</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {matchedRegulations.map((item, idx) => (
+                                                <div key={idx} className="bg-white p-4 rounded-xl border border-primary-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+                                                    <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center text-primary-600 font-bold text-xs font-num">{idx+1}</div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{item.colName}</span>
+                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{item.deptName}</span>
+                                                            {item.histType !== 'standard' && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{PROCESS_TYPES.find(p=>p.id===item.histType)?.label}</span>}
+                                                        </div>
+                                                        <div className="font-bold text-primary-800">{item.ruleName}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">修正內容：{item.histLabel}</div>
+                                                    </div>
+                                                    {item.note && (
+                                                        <div className="max-w-xs text-xs text-gray-400 bg-gray-50 p-2 rounded border border-gray-100">
+                                                            {item.note}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-primary-300">
+                                <Icons.Gavel className="text-6xl mb-4 opacity-20"/>
+                                <p>請選擇或新增會議紀錄</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [data, setData] = useState(() => {
                 const saved = localStorage.getItem('reg_tracker_pro_v15');
@@ -808,12 +868,19 @@
                 const saved = localStorage.getItem('reg_tracker_templates');
                 try { return saved ? JSON.parse(saved) : DEFAULT_NOTE_TEMPLATES; } catch { return DEFAULT_NOTE_TEMPLATES; }
             });
+            // New State for Meetings
+            const [meetings, setMeetings] = useState(() => {
+                const saved = localStorage.getItem('reg_tracker_meetings');
+                try { return saved ? JSON.parse(saved) : []; } catch { return []; }
+            });
+
             const [activeTab, setActiveTab] = useState({ type: 'dashboard' }); 
             const [expandedColleges, setExpandedColleges] = useState({});
             const [manageTemplates, setManageTemplates] = useState(false);
 
             useEffect(() => localStorage.setItem('reg_tracker_pro_v15', JSON.stringify(data)), [data]);
             useEffect(() => localStorage.setItem('reg_tracker_templates', JSON.stringify(templates)), [templates]);
+            useEffect(() => localStorage.setItem('reg_tracker_meetings', JSON.stringify(meetings)), [meetings]);
 
             const addCollege = () => {
                 const id = generateId();
@@ -899,8 +966,11 @@
                             </div>
                         </div>
                         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                            <button onClick={()=>setActiveTab({type: 'dashboard'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-4 ${activeTab.type==='dashboard'?'active':''}`}><Icons.Home className="text-base"/> 總表儀表板</button>
+                            <button onClick={()=>setActiveTab({type: 'dashboard'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-1 rounded-lg ${activeTab.type==='dashboard'?'active':''}`}><Icons.Home className="text-base"/> 總表儀表板</button>
                             
+                            {/* New Navigation Item */}
+                            <button onClick={()=>setActiveTab({type: 'meetings'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-4 rounded-lg ${activeTab.type==='meetings'?'active':''}`}><Icons.Gavel className="text-base"/> 校級會議紀錄</button>
+
                             <div className="px-4 text-[10px] font-bold uppercase text-primary-400 tracking-wider mb-2 flex justify-between items-center">
                                 <span>學院列表</span>
                                 <button onClick={addCollege} className="text-primary-600 hover:bg-primary-50 p-1 rounded"><Icons.Plus className="text-base"/></button>
@@ -908,7 +978,7 @@
 
                             {data.map((c, idx) => (
                                 <div key={c.id} className="mb-1">
-                                    <div className={`nav-item flex items-center justify-between px-4 py-2 text-sm font-medium cursor-pointer ${activeTab.id===c.id && activeTab.type==='college' ? 'active' : ''}`}
+                                    <div className={`nav-item flex items-center justify-between px-4 py-2 text-sm font-medium cursor-pointer rounded-lg ${activeTab.id===c.id && activeTab.type==='college' ? 'active' : ''}`}
                                         onClick={() => toggleCollege(c.id)}>
                                         <div className="flex items-center gap-2 truncate flex-1" onClick={(e) => { e.stopPropagation(); setActiveTab({ type: 'college', id: c.id }); }}>
                                             {expandedColleges[c.id] ? <Icons.ChevronDown className="text-xs text-primary-400"/> : <Icons.ChevronRight className="text-xs text-primary-400"/>}
@@ -927,7 +997,7 @@
                                                 <button 
                                                     key={d.id} 
                                                     onClick={() => setActiveTab({ type: 'dept', id: d.id })}
-                                                    className={`w-full text-left pl-12 pr-4 py-2 text-sm transition-colors truncate block border-l-2 ml-4 flex items-center gap-2 ${activeTab.id === d.id ? 'border-primary-500 text-primary-600 font-bold bg-primary-50/50' : 'border-primary-100 text-primary-500 hover:border-primary-300 hover:text-primary-700'}`}
+                                                    className={`w-full text-left pl-12 pr-4 py-2 text-sm transition-colors truncate block border-l-2 ml-4 flex items-center gap-2 rounded-r-lg ${activeTab.id === d.id ? 'border-primary-500 text-primary-600 font-bold bg-primary-50/50' : 'border-primary-100 text-primary-500 hover:border-primary-300 hover:text-primary-700'}`}
                                                 >
                                                     <Icons.Dept className="text-sm opacity-70" /> {d.name}
                                                 </button>
@@ -949,6 +1019,8 @@
                         <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
                             {activeTab.type === 'dashboard' ? (
                                 <Dashboard data={data}/>
+                            ) : activeTab.type === 'meetings' ? (
+                                <SchoolMeetingView meetings={meetings} onUpdateMeetings={setMeetings} fullData={data} />
                             ) : activeTab.type === 'college' && activeCollege ? (
                                 <div className="max-w-4xl mx-auto animate-fade-in pb-20">
                                     <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 mb-8">
