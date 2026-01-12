@@ -382,7 +382,7 @@
                          id: `${h.id}_direct`,
                          label: h.directUnit || '逕予修訂',
                          date: h.univDate,
-                         status: getStatus(h.univVerification, h.univDate), // Direct 視為 univ 層級
+                         status: getStatus(h.univVerification, h.univDate),
                          hasCard: true,
                          cardData: cardData
                      });
@@ -447,10 +447,10 @@
                     if (type === 'text') return 'text-orange-500';
                     if (type === 'line') return 'bg-orange-400';
                 }
-                // default verified (藍/灰)
-                if (type === 'dot') return 'bg-primary-500';
-                if (type === 'text') return 'text-primary-600';
-                if (type === 'line') return 'bg-primary-200';
+                // default verified (深藍色)
+                if (type === 'dot') return 'bg-primary-600';
+                if (type === 'text') return 'text-primary-800';
+                if (type === 'line') return 'bg-primary-600'; // 改為深藍色
             };
 
             return (
@@ -470,10 +470,6 @@
                                  const isLast = i === allNodes.length - 1;
                                  
                                  // 線條顏色邏輯：
-                                 // 只要兩端有一端是 missing -> 紅
-                                 // 否則若有一端是 unverifiable -> 橘
-                                 // 否則 -> 藍(預設)
-                                 
                                  const getLineColor = (s1, s2) => {
                                      if (s1 === 'missing' || s2 === 'missing') return getStatusColor('missing', 'line');
                                      if (s1 === 'unverifiable' || s2 === 'unverifiable') return getStatusColor('unverifiable', 'line');
@@ -481,15 +477,21 @@
                                  };
 
                                  // 左線
-                                 let leftLineColor = 'bg-primary-200';
-                                 if (!isFirst) {
+                                 let leftLineColor;
+                                 if (isFirst) {
+                                     // 第一點的左側延伸線：跟隨該點狀態
+                                     leftLineColor = getStatusColor(node.status, 'line');
+                                 } else {
                                      const prevNode = allNodes[i-1];
                                      leftLineColor = getLineColor(prevNode.status, node.status);
                                  }
 
                                  // 右線
-                                 let rightLineColor = 'bg-primary-200';
-                                 if (!isLast) {
+                                 let rightLineColor;
+                                 if (isLast) {
+                                     // 最後一點的右側延伸線：跟隨該點狀態
+                                     rightLineColor = getStatusColor(node.status, 'line');
+                                 } else {
                                      const nextNode = allNodes[i+1];
                                      rightLineColor = getLineColor(node.status, nextNode.status);
                                  }
