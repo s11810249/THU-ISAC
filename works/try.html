@@ -341,132 +341,8 @@
 
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
-            
-            // 1. 排序：由舊到新 (包含 effectiveDate)
-            const sortedHistory = [...history].sort((a, b) => {
-                const dateA = a.effectiveDate || a.univDate || a.collegeDate || a.deptDate || '';
-                const dateB = b.effectiveDate || b.univDate || b.collegeDate || b.deptDate || '';
-                if (!dateA && !dateB) return 0;
-                if (!dateA) return 1; 
-                if (!dateB) return -1;
-                return dateA.localeCompare(dateB); 
-            });
 
-            // 2. 將修法歷程攤平為節點列表
-            const allNodes = [];
-            sortedHistory.forEach(h => {
-                const type = h.type || 'standard';
-                const isDirect = type === 'direct' || type === 'name_change' || type === 'format';
-                const isDeptNameChange = type === 'dept_name_change';
-                const isNewEnactment = type === 'new_enactment';
-                
-                let cardTitle = h.label;
-                let specialNote = null; // 用於處理系所更名的特殊備註段落
-
-                // 處理卡片標題與內容
-                if (isDeptNameChange) {
-                     let dateStr = '______';
-                     if (h.effectiveDate) {
-                         const parts = h.effectiveDate.split('-');
-                         const y = parseInt(parts[0]) - 1911;
-                         const m = parseInt(parts[1]);
-                         const d = parseInt(parts[2]);
-                         dateStr = `${y}年${m}月${d}日`;
-                     }
-                     // 標題改為新法規名稱
-                     cardTitle = `更名為「${h.newRegulationName||'______'}」`;
-                     // 內容：[舊系所]經[核定]...
-                     specialNote = `${h.oldDeptName||'______'}經${h.approvingUnit||'______'}核定自民國${dateStr}起更名為「${h.newDeptName||'______'}」`;
-
-                } else if (isNewEnactment) {
-                    cardTitle = h.regulationName || '新訂定法規';
-                } else if (isDirect && h.univDate) {
-                     const parts = h.univDate.split('-');
-                     const y = parseInt(parts[0]) - 1911;
-                     const m = parseInt(parts[1]);
-                     const d = parseInt(parts[2]);
-                     cardTitle = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
-                } else if (!cardTitle) {
-                     cardTitle = "修正案";
-                }
-
-                const cardData = {
-                    id: h.id,
-                    typeLabel: PROCESS_TYPES.find(p=>p.id===type)?.label,
-                    title: cardTitle,
-                    specialNote: specialNote, // 傳遞特殊備註
-                    note: h.note
-                };
-
-                const getStatus = (ver, date) => ver || (date ? 'verified' : 'missing');
-
-                if (isDeptNameChange) {
-                     allNodes.push({
-                         id: `${h.id}_dept_change`,
-                         label: '系所名稱變更', // 強制顯示為此標題
-                         date: h.effectiveDate,
-                         status: getStatus(h.univVerification, h.effectiveDate),
-                         hasCard: true,
-                         cardData: cardData
-                     });
-                } else if (isDirect) {
-                     allNodes.push({
-                         id: `${h.id}_direct`,
-                         label: h.directUnit || '逕予修訂',
-                         date: h.univDate,
-                         status: getStatus(h.univVerification, h.univDate),
-                         hasCard: true,
-                         cardData: cardData
-                     });
-                } else {
-                     // Standard & New Enactment
-                     if (h.deptMeetingType !== 'none') {
-                         let label = '系務會議';
-                         if (h.deptMeetingType === 'internship') label = '系實習委員會';
-                         else if (h.deptMeetingType === 'preparatory') label = '系籌備會議';
-                         allNodes.push({
-                             id: `${h.id}_dept`,
-                             label: label,
-                             date: h.deptDate,
-                             status: getStatus(h.deptVerification, h.deptDate),
-                             hasCard: false
-                         });
-                     }
-                     
-                     let collegeLabel = h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議';
-                     allNodes.push({
-                         id: `${h.id}_college`,
-                         label: collegeLabel,
-                         date: h.collegeDate,
-                         status: getStatus(h.collegeVerification, h.collegeDate),
-                         hasCard: false
-                     });
-
-                     allNodes.push({
-                         id: `${h.id}_univ`,
-                         label: '校級實習委員會',
-                         date: h.univDate,
-                         status: getStatus(h.univVerification, h.univDate),
-                         hasCard: true,
-                         cardData: cardData
-                     });
-                }
-            });
-
-            const CollapsibleNote = ({ note }) => {
-                const [expanded, setExpanded] = useState(false);
-                return (
-                    <div 
-                        className={`mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left cursor-pointer hover:text-gray-600 transition-colors whitespace-pre-wrap ${expanded ? '' : 'line-clamp-2'}`}
-                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                        title={expanded ? "點擊收合" : "點擊展開"}
-                    >
-                        {note} {expanded ? <span className="text-[10px] text-blue-400 block mt-1 text-right">(收合)</span> : <span className="text-[10px] text-blue-400 ml-1">(...展開)</span>}
-                    </div>
-                );
-            };
-
-            // 顏色色碼定義
+            // 定義顏色代碼
             const COLOR_CODES = {
                 missing: '#f87171', 
                 unverifiable: '#fb923c', 
@@ -488,13 +364,143 @@
                 return '';
             };
 
+            const CollapsibleNote = ({ note }) => {
+                const [expanded, setExpanded] = useState(false);
+                return (
+                    <div 
+                        className={`mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left cursor-pointer hover:text-gray-600 transition-colors whitespace-pre-wrap ${expanded ? '' : 'line-clamp-2'}`}
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+                        title={expanded ? "點擊收合" : "點擊展開"}
+                    >
+                        {note} {expanded ? <span className="text-[10px] text-blue-400 block mt-1 text-right">(收合)</span> : <span className="text-[10px] text-blue-400 ml-1">(...展開)</span>}
+                    </div>
+                );
+            };
+
+            // --- 核心修改：先將所有歷程攤平為節點陣列 (Flatten) ---
+            let allNodes = [];
+
+            history.forEach(h => {
+                const type = h.type || 'standard';
+                const isDirect = type === 'direct' || type === 'name_change' || type === 'format';
+                const isDeptNameChange = type === 'dept_name_change';
+                const isNewEnactment = type === 'new_enactment';
+
+                // 準備卡片資料
+                let cardTitle = h.label;
+                let specialNote = null;
+
+                if (isDeptNameChange) {
+                    let dateStr = '______';
+                    if (h.effectiveDate) {
+                        const parts = h.effectiveDate.split('-');
+                        const y = parseInt(parts[0]) - 1911;
+                        const m = parseInt(parts[1]);
+                        const d = parseInt(parts[2]);
+                        dateStr = `${y}年${m}月${d}日`;
+                    }
+                    cardTitle = `更名為「${h.newRegulationName||'______'}」`;
+                    specialNote = `${h.oldDeptName||'______'}經${h.approvingUnit||'______'}核定自民國${dateStr}起更名為「${h.newDeptName||'______'}」`;
+
+                } else if (isNewEnactment) {
+                    cardTitle = h.regulationName || '新訂定法規';
+                } else if (isDirect && h.univDate) {
+                    const parts = h.univDate.split('-');
+                    const y = parseInt(parts[0]) - 1911;
+                    const m = parseInt(parts[1]);
+                    const d = parseInt(parts[2]);
+                    cardTitle = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
+                } else if (!cardTitle) {
+                    cardTitle = "修正案";
+                }
+
+                const cardData = {
+                    id: h.id,
+                    typeLabel: PROCESS_TYPES.find(p=>p.id===type)?.label,
+                    title: cardTitle,
+                    specialNote: specialNote,
+                    note: h.note
+                };
+
+                const getStatus = (ver, date) => ver || (date ? 'verified' : 'missing');
+
+                // 根據類型產生對應的節點 (Nodes)
+                if (isDeptNameChange) {
+                    // 系所名稱變更：只有一個節點 (生效日)
+                    allNodes.push({
+                        id: `${h.id}_dept_change`,
+                        label: '系所名稱變更',
+                        date: h.effectiveDate,
+                        status: getStatus(h.univVerification, h.effectiveDate),
+                        hasCard: true,
+                        cardData: cardData
+                    });
+                } else if (isDirect) {
+                    // 逕予修訂：只有一個節點 (發文日)
+                    allNodes.push({
+                        id: `${h.id}_direct`,
+                        label: h.directUnit || '逕予修訂',
+                        date: h.univDate,
+                        status: getStatus(h.univVerification, h.univDate),
+                        hasCard: true,
+                        cardData: cardData
+                    });
+                } else {
+                    // 一般修法 & 新訂定：產生三個節點 (系、院、校)
+                    // 系級
+                    if (h.deptMeetingType !== 'none') {
+                        let label = '系務會議';
+                        if (h.deptMeetingType === 'internship') label = '系實習委員會';
+                        else if (h.deptMeetingType === 'preparatory') label = '系籌備會議';
+                        allNodes.push({
+                            id: `${h.id}_dept`,
+                            label: label,
+                            date: h.deptDate,
+                            status: getStatus(h.deptVerification, h.deptDate),
+                            hasCard: false
+                        });
+                    }
+                    
+                    // 院級
+                    let collegeLabel = h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議';
+                    allNodes.push({
+                        id: `${h.id}_college`,
+                        label: collegeLabel,
+                        date: h.collegeDate,
+                        status: getStatus(h.collegeVerification, h.collegeDate),
+                        hasCard: false
+                    });
+
+                    // 校級 (有卡片)
+                    allNodes.push({
+                        id: `${h.id}_univ`,
+                        label: '校級實習委員會',
+                        date: h.univDate,
+                        status: getStatus(h.univVerification, h.univDate),
+                        hasCard: true,
+                        cardData: cardData
+                    });
+                }
+            });
+
+            // --- 核心修改：依日期對所有節點進行排序 (Sorting) ---
+            // 規則：有日期的排前面(由舊到新)，沒日期的排最後(視為未來/未定)
+            allNodes.sort((a, b) => {
+                const dateA = a.date || '';
+                const dateB = b.date || '';
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1; // A 無日期，往後排
+                if (!dateB) return -1; // B 無日期，A 往前排
+                return dateA.localeCompare(dateB); // 由舊到新
+            });
+
             return (
                 <div className="border-t border-primary-100 mt-6 pt-6">
                      <div className="flex items-center gap-2 mb-4">
                         <div className="bg-primary-100 p-1.5 rounded-lg text-primary-600">
                             <Icons.History className="text-sm" />
                         </div>
-                        <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (由舊到新)</span>
+                        <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (依時間序穿插排列)</span>
                     </div>
 
                     <div className="relative w-full overflow-x-auto pb-12 pt-4 px-4 scrollbar-thin">
@@ -515,7 +521,7 @@
                                     ? { background: `linear-gradient(to right, ${nodeColorCode} 50%, ${greyColorCode} 50%)` }
                                     : { backgroundColor: nodeColorCode };
 
-                                 // 修正卡片重疊：如果有卡片，增加該節點的最小寬度到 300px
+                                 // 卡片防重疊：有卡片的節點給予較大寬度
                                  const layoutClass = `flex-1 ${node.hasCard ? 'min-w-[300px]' : 'min-w-[180px]'}`;
                                  
                                  const dotClass = getStatusClass(node.status, 'dot');
@@ -556,7 +562,7 @@
                                                      <div className="text-sm font-bold text-slate-700 leading-snug mb-3 break-words">
                                                          {node.cardData.title}
                                                      </div>
-                                                     
+
                                                      {/* 特殊備註區塊 (分隔線 + 內容) */}
                                                      {node.cardData.specialNote && (
                                                          <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left">
@@ -564,7 +570,6 @@
                                                          </div>
                                                      )}
                                                      
-                                                     {/* 原有使用者備註 */}
                                                      {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
                                                  </div>
                                              </div>
