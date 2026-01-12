@@ -331,7 +331,6 @@
             sortedHistory.forEach(h => {
                 const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
                 
-                // 準備卡片資料
                 let cardTitle = h.label;
                 if (isDirect && h.univDate) {
                      const parts = h.univDate.split('-');
@@ -360,7 +359,6 @@
                          cardData: cardData
                      });
                 } else {
-                     // 一般修法：系 -> 院 -> 校
                      if (h.deptMeetingType !== 'none') {
                          let label = '系務會議';
                          if (h.deptMeetingType === 'internship') label = '系實習委員會';
@@ -385,7 +383,7 @@
 
                      allNodes.push({
                          id: `${h.id}_univ`,
-                         label: '校級實習委員會', // 修正名稱
+                         label: '校級實習委員會',
                          date: h.univDate,
                          status: h.univDate ? 'ok' : 'missing',
                          hasCard: true,
@@ -394,7 +392,6 @@
                 }
             });
 
-            // 輔助元件：可收闔的備註 (靠左對齊)
             const CollapsibleNote = ({ note }) => {
                 const [expanded, setExpanded] = useState(false);
                 return (
@@ -417,48 +414,50 @@
                         <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (由舊到新)</span>
                     </div>
 
-                    {/* 容器 */}
+                    {/* 容器：min-w-full 確保佔滿寬度，flex 讓內部 items 自動分配空間 */}
                     <div className="relative w-full overflow-x-auto pb-12 pt-4 px-4 scrollbar-thin">
-                         <div className="min-w-max flex items-start">
+                         <div className="min-w-full flex items-start">
                              
                              {allNodes.map((node, i) => {
                                  const isFirst = i === 0;
                                  const isLast = i === allNodes.length - 1;
                                  const isMissing = node.status === 'missing';
                                  
-                                 // 線條顏色判斷
-                                 // 左線：連接上一個節點
+                                 // 線條顏色判斷 (邏輯：只要連接的兩端有一端是 missing，中間的線就變紅)
+                                 // 左線
                                  let leftLineColor = 'bg-primary-200';
                                  if (!isFirst) {
                                      const prevNode = allNodes[i-1];
                                      if (prevNode.status === 'missing' || isMissing) leftLineColor = 'bg-red-400';
                                  }
 
-                                 // 右線：連接下一個節點
+                                 // 右線
                                  let rightLineColor = 'bg-primary-200';
                                  if (!isLast) {
                                      const nextNode = allNodes[i+1];
                                      if (isMissing || nextNode.status === 'missing') rightLineColor = 'bg-red-400';
                                  }
 
-                                 // 動態寬度
-                                 const nodeWidth = node.hasCard ? 'min-w-[300px]' : 'min-w-[120px]';
+                                 // 動態寬度：
+                                 // flex-1: 讓節點自動平分剩餘空間 (解決節點少時擠在左邊的問題)
+                                 // min-w-[180px]: 確保節點多時不會被過度壓縮，會產生捲軸
+                                 const layoutClass = "flex-1 min-w-[180px]";
 
                                  return (
-                                     <div key={node.id} className={`relative flex flex-col items-center group ${nodeWidth}`}>
+                                     <div key={node.id} className={`relative flex flex-col items-center group ${layoutClass}`}>
                                          
-                                         {/* 1. 上方標籤 */}
+                                         {/* 1. 上方標籤 (固定高度) */}
                                          <div className="h-10 flex items-end mb-2">
                                             <span className={`text-sm font-bold whitespace-nowrap px-1 ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
                                                  {node.label}
                                             </span>
                                          </div>
 
-                                         {/* 2. 中間圓點與線條 (線條現在一律繪製，形成貫穿效果) */}
+                                         {/* 2. 中間圓點與線條 */}
                                          <div className="w-full h-6 relative flex items-center justify-center">
-                                             {/* 左半線 */}
+                                             {/* 左半線：永遠顯示，確保第一點左側也有線 */}
                                              <div className={`absolute left-0 w-1/2 h-[2px] ${leftLineColor}`}></div>
-                                             {/* 右半線 */}
+                                             {/* 右半線：永遠顯示，確保最後一點右側也有線 */}
                                              <div className={`absolute right-0 w-1/2 h-[2px] ${rightLineColor}`}></div>
                                              
                                              {/* 圓點 */}
@@ -470,7 +469,7 @@
                                              {node.date ? toROC(node.date) : '無'}
                                          </div>
 
-                                         {/* 4. 詳細卡片 (靠左對齊) */}
+                                         {/* 4. 詳細卡片 */}
                                          {node.hasCard && (
                                              <div className="mt-4 w-[280px] px-2 animate-fade-in-up">
                                                  <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all text-left relative group-hover:-translate-y-1 duration-200">
