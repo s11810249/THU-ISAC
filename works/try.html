@@ -554,6 +554,17 @@
         const HistoryEditorRow = ({ h, index, updateHist, delHist }) => {
             const [isCollapsed, setIsCollapsed] = useState(false);
             const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
+            
+            // 新增：用於自動調整高度的 ref
+            const noteRef = useRef(null);
+
+            // 新增：監聽內容或展開狀態改變時，自動調整高度
+            useEffect(() => {
+                if (noteRef.current) {
+                    noteRef.current.style.height = 'auto';
+                    noteRef.current.style.height = noteRef.current.scrollHeight + 'px';
+                }
+            }, [h.note, isCollapsed]);
 
             return (
                 <div className="bg-primary-50 rounded-xl border border-primary-100 overflow-hidden transition-all duration-300">
@@ -616,7 +627,6 @@
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(index,'univDate',v)} placeholder="日期"/></div>
-                                            {/* 授權逕予修訂通常視同校級通過 */}
                                             <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="紀錄確認" />
                                         </div>
                                     </div>
@@ -661,7 +671,13 @@
                             )}
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-primary-400 uppercase">備註說明</label>
-                                <textarea className="clean-input w-full text-xs text-primary-700 h-10 resize-y" value={h.note||''} onChange={e=>updateHist(index,'note',e.target.value)} placeholder="備註..."></textarea>
+                                <textarea 
+                                    ref={noteRef}
+                                    className="clean-input w-full text-xs text-primary-700 min-h-[40px] resize-none overflow-hidden" 
+                                    value={h.note||''} 
+                                    onChange={e=>updateHist(index,'note',e.target.value)} 
+                                    placeholder="備註..."
+                                ></textarea>
                             </div>
                         </div>
                     )}
