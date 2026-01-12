@@ -326,7 +326,7 @@
                 return dateA.localeCompare(dateB); 
             });
 
-            // 2. 將修法歷程攤平為節點列表 (Nodes)
+            // 2. 將修法歷程攤平為節點列表
             const allNodes = [];
             sortedHistory.forEach(h => {
                 const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
@@ -399,11 +399,11 @@
                 const [expanded, setExpanded] = useState(false);
                 return (
                     <div 
-                        className={`mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left cursor-pointer hover:text-gray-600 transition-colors whitespace-pre-wrap ${expanded ? '' : 'truncate'}`}
+                        className={`mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left cursor-pointer hover:text-gray-600 transition-colors whitespace-pre-wrap ${expanded ? '' : 'line-clamp-2'}`}
                         onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
                         title={expanded ? "點擊收合" : "點擊展開"}
                     >
-                        {note} {expanded ? <span className="text-[10px] text-blue-400 block mt-1 text-right">(收合)</span> : <span className="text-[10px] text-blue-400">(展開)</span>}
+                        {note} {expanded ? <span className="text-[10px] text-blue-400 block mt-1 text-right">(收合)</span> : <span className="text-[10px] text-blue-400 ml-1">(...展開)</span>}
                     </div>
                 );
             };
@@ -417,68 +417,78 @@
                         <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (由舊到新)</span>
                     </div>
 
-                    {/* 橫向捲動容器 */}
-                    <div className="relative w-full overflow-x-auto pb-12 pt-12 px-4 scrollbar-thin">
-                         <div className="min-w-max flex items-start">
+                    {/* 容器：設定足夠的 pb (padding-bottom) 以容納卡片，避免出現垂直捲軸 */}
+                    <div className="relative w-full overflow-x-auto pb-64 pt-8 px-4 scrollbar-thin">
+                         <div className="min-w-max flex items-center relative">
+                             
+                             {/* 背景貫穿線 - 絕對定位在圓點高度 */}
+                             {/* 計算方式：上方 Label 約 24px + 圓點中心 */}
+                             <div className="absolute left-0 right-0 top-[26px] h-[2px] bg-primary-200 z-0"></div>
+
                              {allNodes.map((node, i) => {
                                  const isLast = i === allNodes.length - 1;
                                  const isMissing = node.status === 'missing';
                                  
-                                 // 線條邏輯：若「當前點」或「下一點」為 missing，則中間連接線變紅
-                                 let lineClass = "bg-primary-200";
+                                 // 線條顏色邏輯 (覆蓋在背景灰線上)
+                                 // 若「當前點」或「下一點」缺漏，則用紅色線段覆蓋
+                                 let showRedLine = false;
                                  if (!isLast) {
                                      const nextNode = allNodes[i+1];
                                      if (isMissing || nextNode.status === 'missing') {
-                                         lineClass = "bg-red-400";
+                                         showRedLine = true;
                                      }
                                  }
 
                                  return (
                                      <React.Fragment key={node.id}>
-                                         <div className="relative flex flex-col items-center group min-w-[120px]">
+                                         <div className="relative flex flex-col items-center group min-w-[160px]"> {/* 固定寬度 160px */}
                                              
-                                             {/* 1. 上方標籤 (不簡寫，字體大，絕對定位) */}
-                                             <div className={`absolute bottom-full mb-3 text-sm font-bold whitespace-nowrap ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
+                                             {/* 1. 上方標籤 */}
+                                             <div className={`mb-3 text-sm font-bold whitespace-nowrap relative z-10 bg-white px-1 ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
                                                  {node.label}
                                              </div>
 
-                                             {/* 2. 中間圓點 (恢復舊版尺寸 w-5 h-5) */}
-                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
+                                             {/* 2. 中間圓點 (點在線上) */}
+                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-20 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
 
                                              {/* 3. 下方日期 */}
                                              <div className={`mt-3 font-num text-xs font-bold ${isMissing ? 'text-red-500' : 'text-primary-600'}`}>
                                                  {node.date ? toROC(node.date) : '無'}
                                              </div>
 
-                                             {/* 4. 詳細卡片 (僅在 hasCard 節點顯示，箭頭對齊圓點) */}
+                                             {/* 4. 詳細卡片 */}
                                              {node.hasCard && (
-                                                 <div className="absolute top-full mt-8 w-72 z-20">
-                                                     <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all text-center relative group-hover:-translate-y-1 duration-200">
-                                                         {/* 箭頭指向圓點 */}
+                                                 <div className="absolute top-full mt-4 w-[280px] z-30 left-1/2 -translate-x-1/2">
+                                                     <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all text-center relative">
+                                                         {/* 箭頭指向日期上方 */}
                                                          <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-200"></div>
                                                          
-                                                         {/* 修法類型 */}
                                                          <div className="mb-3">
                                                              <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
                                                                  {node.cardData.typeLabel}
                                                              </span>
                                                          </div>
                                                          
-                                                         {/* 標題 */}
-                                                         <div className="text-sm font-bold text-slate-700 leading-snug mb-3">
+                                                         <div className="text-sm font-bold text-slate-700 leading-snug mb-3 break-words">
                                                              {node.cardData.title}
                                                          </div>
 
-                                                         {/* 備註 */}
                                                          {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
                                                      </div>
                                                  </div>
                                              )}
                                          </div>
 
-                                         {/* 連接線 (位於圓點中心高度) */}
-                                         {!isLast && (
-                                             <div className={`flex-1 h-[2px] mt-[9px] -mx-4 z-0 ${lineClass}`} style={{minWidth: '50px'}}></div>
+                                         {/* 紅色連接線 (若需要) */}
+                                         {/* 位於節點右側，連接到下一個節點 */}
+                                         {!isLast && showRedLine && (
+                                             <div className="absolute h-[2px] bg-red-400 z-10" 
+                                                  style={{
+                                                      left: `calc(${160 * i}px + 50%)`, // 從當前節點中心開始
+                                                      width: '160px', // 長度等於一個節點寬度
+                                                      top: '26px' // 對齊圓點中心
+                                                  }}>
+                                             </div>
                                          )}
                                      </React.Fragment>
                                  )
