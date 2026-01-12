@@ -871,10 +871,10 @@
                 const list = [];
                 data.forEach(col => {
                     col.departments.forEach(dept => {
-                        // 【修改點 1】只遍歷 committeeRules (實習委員會要點)，移除 internshipRules
+                        // 1. 只抓取 committeeRules (實習委員會要點)，不抓 internshipRules
                         (dept.committeeRules || []).forEach(r => {
                             
-                            // 計算最新進度顯示文字 (維持顯示最新發生的事件，包含逕予修訂，讓助教知道目前最新狀態)
+                            // 計算「最新進度」顯示文字 (包含逕予修訂，顯示發生什麼事)
                             let maxDate = ''; 
                             let progressLabel = '無紀錄';
                             
@@ -884,7 +884,6 @@
                                 if (['direct', 'name_change', 'format'].includes(hType)) {
                                     effectiveDate = h.univDate;
                                 } else {
-                                    // 比較各級日期找出該歷程的最新時間點
                                     if (h.univDate && h.univDate > effectiveDate) effectiveDate = h.univDate;
                                     if (h.collegeDate && h.collegeDate > effectiveDate) effectiveDate = h.collegeDate;
                                     if (h.deptDate && h.deptDate > effectiveDate) effectiveDate = h.deptDate;
@@ -911,15 +910,16 @@
                                 }
                             });
 
-                            // 【修改點 2】計算「最近校級」通過版本時，排除授權逕予修訂 (direct/name_change/format)
+                            // 2. 計算各級別最近通過日期
                             let maxUniv = '', maxCollege = '', maxDept = '';
                             (r.history || []).forEach(h => {
                                 const hType = h.type || 'standard';
                                 const isDirect = ['direct', 'name_change', 'format'].includes(hType);
 
-                                // 只有非逕予修訂的歷程，才納入「最近校級」計算
+                                // 計算校級：排除「授權逕予修訂」類型的日期
                                 if(h.univDate && h.univDate > maxUniv && !isDirect) maxUniv = h.univDate;
                                 
+                                // 計算院級、系級
                                 if(h.collegeDate && h.collegeDate > maxCollege) maxCollege = h.collegeDate;
                                 if(h.deptDate && h.deptDate > maxDept) maxDept = h.deptDate;
                             });
@@ -933,7 +933,6 @@
                                 maxUniv,
                                 maxCollege,
                                 maxDept,
-                                // 【修改點 3】加入雲端與系統版本資料
                                 cloudVersion: r.cloudVersion,
                                 systemVersion: r.systemVersion,
                                 checkStatus: r.checkStatus || 'pending',
@@ -960,7 +959,7 @@
                             </h2>
                             <div className="flex gap-4">
                                 <span className="text-sm font-bold text-primary-500 bg-white px-3 py-1 rounded-full shadow-sm border border-primary-100">
-                                    共 {reportData.length} 筆
+                                    共 {reportData.length} 筆要點
                                 </span>
                             </div>
                         </div>
@@ -971,9 +970,14 @@
                                         <th className="px-6 py-4 whitespace-nowrap bg-gray-50 sticky left-0 z-10">學院 / 學系</th>
                                         <th className="px-6 py-4 min-w-[200px]">法規名稱</th>
                                         <th className="px-6 py-4 min-w-[180px]">最新進度</th>
-                                        {/* 【修改點 3】新增顯示欄位表頭 */}
-                                        <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">系所雲端版本</th>
-                                        <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">法規系統版本</th>
+                                        
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">系所雲端</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">法規系統</th>
+                                        
+                                        {/* 補回系級與院級 */}
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近系級</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近院級</th>
+                                        
                                         <th className="px-4 py-4 whitespace-nowrap text-center text-blue-600">最近校級通過</th>
                                         <th className="px-6 py-4 whitespace-nowrap text-center">查核結果</th>
                                         <th className="px-6 py-4 min-w-[200px]">整體備註</th>
@@ -989,12 +993,20 @@
                                             <td className="px-6 py-4 font-bold text-primary-800">{row.ruleName}</td>
                                             <td className="px-6 py-4 text-primary-600 text-xs font-bold">{row.progress}</td>
                                             
-                                            {/* 【修改點 3】顯示雲端與系統版本 (若無日期顯示未設定) */}
+                                            {/* 雲端與系統版本 */}
                                             <td className="px-4 py-4 text-center font-num text-slate-600 bg-slate-50/30">
                                                 {toROC(row.cloudVersion) || <span className="text-gray-300">-</span>}
                                             </td>
                                             <td className="px-4 py-4 text-center font-num text-slate-600 bg-slate-50/30">
                                                 {toROC(row.systemVersion) || <span className="text-gray-300">-</span>}
+                                            </td>
+
+                                            {/* 補回顯示系級與院級日期 */}
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">
+                                                {toROC(row.maxDept) || <span className="text-gray-300">-</span>}
+                                            </td>
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">
+                                                {toROC(row.maxCollege) || <span className="text-gray-300">-</span>}
                                             </td>
 
                                             <td className="px-4 py-4 text-center font-num text-blue-600 font-bold bg-blue-50/20">
