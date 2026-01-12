@@ -316,12 +316,26 @@
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
-            // 排序：由新到舊
+            // 排序：由新到舊 (Timeline 會由左至右顯示：新 -> 舊)
             const sortedHistory = [...history].sort((a, b) => {
                 const dateA = a.univDate || a.collegeDate || a.deptDate || '';
                 const dateB = b.univDate || b.collegeDate || b.deptDate || '';
                 return dateB.localeCompare(dateA); 
             });
+
+            // 輔助元件：可收闔的備註
+            const CollapsibleNote = ({ note }) => {
+                const [expanded, setExpanded] = useState(false);
+                return (
+                    <div 
+                        className={`mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-400 text-left cursor-pointer hover:text-gray-600 transition-colors ${expanded ? '' : 'truncate'}`}
+                        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+                        title={expanded ? "點擊收合" : "點擊展開"}
+                    >
+                        {note} {expanded ? <span className="text-[9px] text-blue-400">(收合)</span> : <span className="text-[9px] text-blue-400">...</span>}
+                    </div>
+                );
+            };
 
             return (
                 <div className="border-t border-primary-100 mt-6 pt-6">
@@ -333,104 +347,126 @@
                     </div>
                     
                     {/* 橫向捲動容器 */}
-                    <div className="relative w-full overflow-x-auto pb-6 scrollbar-thin">
-                        <div className="min-w-max flex items-start gap-4 relative pt-4 px-4">
-                            {/* 橫向主軸貫穿線 */}
-                            <div className="absolute top-[23px] left-4 right-4 h-[2px] bg-primary-200 z-0"></div>
-
+                    {/* pt-48 預留上方卡片展開的空間，確保軸線不被遮擋或跑版 */}
+                    <div className="relative w-full overflow-x-auto overflow-y-hidden pb-12 pt-48 px-4 scrollbar-thin">
+                        <div className="min-w-max flex items-end"> 
                             {sortedHistory.map((h, i) => {
                                  const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
-                                 
-                                 let displayLabel = h.label;
-                                 let dateDisplay = '';
+                                 const isLastEntry = i === sortedHistory.length - 1;
 
-                                 // 設定顯示日期與標題
+                                 // 準備顯示資料
+                                 let title = h.label;
+                                 let mainDate = '';
                                  if (isDirect) {
                                      if (h.univDate) {
-                                        dateDisplay = toROC(h.univDate);
+                                        mainDate = toROC(h.univDate);
                                         const parts = h.univDate.split('-');
                                         const y = parseInt(parts[0]) - 1911;
                                         const m = parseInt(parts[1]);
                                         const d = parseInt(parts[2]);
-                                        displayLabel = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
+                                        title = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
                                      }
                                  } else {
-                                     // 一般修法顯示最晚的日期（通常是校級）
-                                     dateDisplay = toROC(h.univDate || h.collegeDate || h.deptDate);
+                                     // 一般修法
+                                     mainDate = toROC(h.univDate); 
+                                     if(!title) title = "修正案";
                                  }
 
-                                 // 建構步驟資料 (系->院->校)
-                                 let steps = [];
+                                 // 建構節點序列
+                                 // 顯示順序 (左->右): 校級(大) -> 院級(小) -> 系級(小) -> 連接下一筆
+                                 const nodes = [];
+                                 
+                                 // 1. 校級 (主節點)
+                                 nodes.push({ type: 'main', label: '校', date: h.univDate, status: h.univDate ? 'ok' : 'missing' });
+                                 
                                  if (!isDirect) {
+                                     // 2. 院級
+                                     nodes.push({ type: 'sub', label: '院', date: h.collegeDate, status: h.collegeDate ? 'ok' : 'missing' });
+                                     // 3. 系級 (若無則不顯示)
                                      if (h.deptMeetingType !== 'none') {
-                                         let label = '系務會議';
-                                         if (h.deptMeetingType === 'internship') label = '系實習委員會';
-                                         else if (h.deptMeetingType === 'preparatory') label = '系籌備會議';
-                                         steps.push({ label, date: h.deptDate });
+                                         nodes.push({ type: 'sub', label: '系', date: h.deptDate, status: h.deptDate ? 'ok' : 'missing' });
                                      }
-                                     steps.push({ label: h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議', date: h.collegeDate });
-                                     steps.push({ label: '校級會議', date: h.univDate });
                                  }
 
                                  return (
-                                    <div key={h.id} className="relative w-80 flex-shrink-0 group flex flex-col items-center">
-                                        {/* 時間點 Dot */}
-                                        <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 mb-3 transition-colors flex items-center justify-center ${i===0 ? 'bg-primary-600 ring-2 ring-primary-200' : 'bg-primary-300 group-hover:bg-primary-400'}`}>
-                                            {i===0 && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
-                                        </div>
-                                        
-                                        {/* 卡片本體 */}
-                                        <div className="w-full bg-white border border-primary-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all relative">
-                                             {/* 上方小箭頭 */}
-                                             <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-1.5 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-100 z-20"></div>
-                                             
-                                             <div className="flex justify-between items-start mb-2">
-                                                 <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider bg-primary-50 px-2 py-0.5 rounded-md">
-                                                     {PROCESS_TYPES.find(p=>p.id===(h.type||'standard'))?.label}
-                                                 </span>
-                                                 {dateDisplay && <span className="font-num text-xs font-bold text-primary-600">{dateDisplay}</span>}
-                                             </div>
-                                             
-                                             {/* 移除 line-clamp-2 以完整顯示 */}
-                                             <div className="font-bold text-slate-700 text-sm mb-4 min-h-[1.25rem]" title={displayLabel}>
-                                                 {displayLabel || '修正案'}
-                                             </div>
-
-                                             {!isDirect && (
-                                                 <div className="flex items-start w-full mb-2">
-                                                     {steps.map((step, idx) => {
-                                                         const isMissing = !step.date;
-                                                         // 計算連接線顏色：如果當前點是紅的，或者下一個點是紅的，中間的線就變紅
-                                                         let lineClass = "bg-gray-200";
-                                                         if (idx < steps.length - 1) {
-                                                             const nextMissing = !steps[idx+1].date;
-                                                             if (isMissing || nextMissing) lineClass = "bg-red-400";
-                                                         }
-
-                                                         return (
-                                                             <React.Fragment key={idx}>
-                                                                 {/* 節點與文字 */}
-                                                                 <div className="flex flex-col items-center relative z-10 min-w-[60px]">
-                                                                     <div className={`w-2.5 h-2.5 rounded-full border border-white shadow-sm mb-1.5 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
-                                                                     <span className={`text-[10px] font-bold mb-0.5 whitespace-nowrap ${isMissing ? 'text-red-500' : 'text-gray-600'}`}>{step.label}</span>
-                                                                     <span className={`text-[9px] font-num ${isMissing ? 'text-red-400 font-bold' : 'text-gray-400'}`}>
-                                                                         {step.date ? toROC(step.date) : '未上傳'}
-                                                                     </span>
-                                                                 </div>
-                                                                 
-                                                                 {/* 連接線 (位於圓點中間高度) */}
-                                                                 {idx < steps.length - 1 && (
-                                                                     <div className={`flex-1 h-[2px] mt-[5px] -mx-2 ${lineClass}`}></div>
-                                                                 )}
-                                                             </React.Fragment>
-                                                         );
-                                                     })}
+                                     <div key={h.id} className="relative w-72 flex-shrink-0 flex flex-col items-center group">
+                                         
+                                         {/* 1. 卡片區域 (絕對定位於軸線上方，向上長) */}
+                                         <div className="absolute bottom-6 w-full px-2 mb-4 z-20">
+                                             <div className="bg-white border border-primary-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all text-center relative group-hover:-translate-y-1 duration-200">
+                                                 {/* 下方箭頭 */}
+                                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-primary-200"></div>
+                                                 
+                                                 {/* 標籤 */}
+                                                 <div className="mb-2">
+                                                     <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
+                                                         {PROCESS_TYPES.find(p=>p.id===(h.type||'standard'))?.label}
+                                                     </span>
                                                  </div>
-                                             )}
+                                                 
+                                                 {/* 標題 */}
+                                                 <div className="text-xs font-bold text-slate-700 leading-tight break-words">
+                                                     {title}
+                                                 </div>
+                                                 
+                                                 {/* 備註 (可收闔) */}
+                                                 {h.note && <CollapsibleNote note={h.note} />}
+                                             </div>
+                                         </div>
 
-                                             {h.note && <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 whitespace-pre-wrap">{h.note}</div>}
-                                        </div>
-                                    </div>
+                                         {/* 2. 軸線與節點區域 */}
+                                         <div className="w-full flex items-center h-4 relative z-10">
+                                             {nodes.map((node, nIdx) => {
+                                                 const isMain = node.type === 'main';
+                                                 const isRed = node.status === 'missing';
+                                                 
+                                                 // 計算右側連線顏色
+                                                 // 規則：如果當前節點缺 OR 下一個節點缺 -> 紅色
+                                                 let rightLineColor = 'bg-primary-200';
+                                                 let showLine = true;
+
+                                                 if (nIdx < nodes.length - 1) {
+                                                     // 連接到同組內的下一個小節點
+                                                     const nextNode = nodes[nIdx + 1];
+                                                     if (isRed || nextNode.status === 'missing') rightLineColor = 'bg-red-400';
+                                                 } else {
+                                                     // 這是本組最後一個節點，連接到下一組的第一個節點 (Main)
+                                                     if (isLastEntry) {
+                                                         showLine = false; // 最後一筆資料右邊沒線
+                                                     } else {
+                                                         const nextEntry = sortedHistory[i+1];
+                                                         const nextMainMissing = !nextEntry.univDate; // 假設下一筆的主節點是校級
+                                                         if (isRed || nextMainMissing) rightLineColor = 'bg-red-400';
+                                                     }
+                                                 }
+
+                                                 return (
+                                                     <React.Fragment key={nIdx}>
+                                                         {/* 節點圓點 */}
+                                                         <div className={`relative flex-shrink-0 rounded-full border-2 border-white shadow-sm transition-colors ${isMain ? 'w-4 h-4' : 'w-2.5 h-2.5'} ${isRed ? 'bg-red-500' : 'bg-primary-500'}`}>
+                                                             {/* 只有主節點下方顯示日期 */}
+                                                             {isMain && (
+                                                                 <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold font-num ${isRed ? 'text-red-500' : 'text-primary-600'}`}>
+                                                                     {mainDate || '未定'}
+                                                                 </div>
+                                                             )}
+                                                             {/* 小節點上方顯示層級名稱(輔助辨識) */}
+                                                             {!isMain && (
+                                                                 <div className={`absolute bottom-full mb-1 left-1/2 -translate-x-1/2 text-[8px] font-bold ${isRed ? 'text-red-400' : 'text-primary-300'}`}>
+                                                                     {node.label}
+                                                                 </div>
+                                                             )}
+                                                         </div>
+                                                         
+                                                         {/* 右側連接線 */}
+                                                         {showLine && (
+                                                             <div className={`flex-1 h-[2px] ${rightLineColor}`}></div>
+                                                         )}
+                                                     </React.Fragment>
+                                                 );
+                                             })}
+                                         </div>
+                                     </div>
                                  );
                             })}
                         </div>
