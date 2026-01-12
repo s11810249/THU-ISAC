@@ -386,7 +386,7 @@
                 const isDeptNameChange = type === 'dept_name_change';
                 const isNewEnactment = type === 'new_enactment';
 
-                // 準備卡片資料
+                // 準備 "主卡片" 資料 (用於顯示修法內容、新訂定名稱、備註等)
                 let cardTitle = h.label;
                 let specialNote = null;
 
@@ -414,7 +414,7 @@
                     cardTitle = "修正案";
                 }
 
-                const cardData = {
+                const mainCardData = {
                     id: h.id,
                     typeLabel: PROCESS_TYPES.find(p=>p.id===type)?.label,
                     title: cardTitle,
@@ -426,29 +426,35 @@
 
                 // 根據類型產生對應的節點 (Nodes)
                 if (isDeptNameChange) {
-                    // 系所名稱變更：只有一個節點 (生效日)
+                    // 系所名稱變更：只有一個節點 (生效日)，掛主卡片
                     allNodes.push({
                         id: `${h.id}_dept_change`,
                         label: '系所名稱變更',
                         date: h.effectiveDate,
                         status: getStatus(h.univVerification, h.effectiveDate),
                         hasCard: true,
-                        cardData: cardData
+                        cardData: mainCardData
                     });
                 } else if (isDirect) {
-                    // 逕予修訂：只有一個節點 (發文日)
+                    // 逕予修訂：只有一個節點 (發文日)，掛主卡片
                     allNodes.push({
                         id: `${h.id}_direct`,
                         label: h.directUnit || '逕予修訂',
                         date: h.univDate,
                         status: getStatus(h.univVerification, h.univDate),
                         hasCard: true,
-                        cardData: cardData
+                        cardData: mainCardData
                     });
                 } else {
                     // 一般修法 & 新訂定：產生三個節點 (系、院、校)
-                    // 系級
-                    if (h.deptMeetingType !== 'none') {
+                    
+                    // 判斷主卡片掛在哪裡：有系級掛系級，無系級掛院級
+                    const hasDept = h.deptMeetingType !== 'none';
+                    const cardAtDept = hasDept;
+                    const cardAtCollege = !hasDept;
+
+                    // 1. 系級節點
+                    if (hasDept) {
                         let label = '系務會議';
                         if (h.deptMeetingType === 'internship') label = '系實習委員會';
                         else if (h.deptMeetingType === 'preparatory') label = '系籌備會議';
@@ -457,34 +463,44 @@
                             label: label,
                             date: h.deptDate,
                             status: getStatus(h.deptVerification, h.deptDate),
-                            hasCard: false
+                            hasCard: cardAtDept, // 在此顯示主卡片
+                            cardData: cardAtDept ? mainCardData : null
                         });
                     }
                     
-                    // 院級
+                    // 2. 院級節點
                     let collegeLabel = h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議';
                     allNodes.push({
                         id: `${h.id}_college`,
                         label: collegeLabel,
                         date: h.collegeDate,
                         status: getStatus(h.collegeVerification, h.collegeDate),
-                        hasCard: false
+                        hasCard: cardAtCollege, // 若無系級，在此顯示主卡片
+                        cardData: cardAtCollege ? mainCardData : null
                     });
 
-                    // 校級 (有卡片)
+                    // 3. 校級節點
+                    // 如果有校級日期，顯示「備查通過實施」卡片
+                    const hasUnivDate = !!h.univDate;
+                    const univCardData = {
+                        id: `${h.id}_univ_approval`,
+                        typeLabel: '校級備查',
+                        title: '備查通過實施',
+                        note: null // 校級卡片通常不重複顯示備註，保持乾淨
+                    };
+
                     allNodes.push({
                         id: `${h.id}_univ`,
                         label: '校級實習委員會',
                         date: h.univDate,
                         status: getStatus(h.univVerification, h.univDate),
-                        hasCard: true,
-                        cardData: cardData
+                        hasCard: hasUnivDate,
+                        cardData: hasUnivDate ? univCardData : null
                     });
                 }
             });
 
             // --- 核心修改：依日期對所有節點進行排序 (Sorting) ---
-            // 規則：有日期的排前面(由舊到新)，沒日期的排最後(視為未來/未定)
             allNodes.sort((a, b) => {
                 const dateA = a.date || '';
                 const dateB = b.date || '';
