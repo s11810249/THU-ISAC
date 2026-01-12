@@ -133,7 +133,7 @@
 
         const DEPT_MEETING_TYPES = [
             { val: 'affairs', label: '系務會議' },
-            { val: 'preparatory ', label: '系籌備會議' },
+            { val: 'preparatory', label: '系籌備會議' },
             { val: 'internship', label: '系實習委員會' },
             { val: 'none', label: '無系級' }
         ];
@@ -366,7 +366,12 @@
 
                              const steps = [];
                              if (h.deptMeetingType !== 'none') {
-                                 steps.push({ key: 'dept', label: '系', suffix: h.deptMeetingType === 'internship' ? '實習委員會' : '務會議', date: h.deptDate });
+                                 // 新增判斷：如果是 preparatory 則顯示 '籌備會議'
+                                 let suffix = '務會議';
+                                 if (h.deptMeetingType === 'internship') suffix = '實習委員會';
+                                 else if (h.deptMeetingType === 'preparatory' || h.deptMeetingType === 'preparatory ') suffix = '籌備會議';
+                                 
+                                 steps.push({ key: 'dept', label: '系', suffix: suffix, date: h.deptDate });
                              }
                              steps.push({ key: 'college', label: '院', suffix: h.collegeMeetingType === 'internship' ? '實習委員會' : '務會議', date: h.collegeDate });
                              steps.push({ key: 'univ', label: '校級', suffix: '實習委員會', date: h.univDate });
