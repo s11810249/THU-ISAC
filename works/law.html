@@ -865,6 +865,132 @@
             );
         };
 
+        // --- 新增：實習委員會控管報表組件 ---
+        const ControlReport = ({ data }) => {
+            const reportData = useMemo(() => {
+                const list = [];
+                data.forEach(col => {
+                    col.departments.forEach(dept => {
+                        [...dept.committeeRules, ...dept.internshipRules].forEach(r => {
+                            // 1. 計算最新進度顯示文字
+                            let maxDate = ''; 
+                            let progressLabel = '無紀錄';
+                            
+                            (r.history || []).forEach(h => {
+                                const hType = h.type || 'standard';
+                                let effectiveDate = '';
+                                if (['direct', 'name_change', 'format'].includes(hType)) {
+                                    effectiveDate = h.univDate;
+                                } else {
+                                    if (h.univDate && h.univDate > effectiveDate) effectiveDate = h.univDate;
+                                    if (h.collegeDate && h.collegeDate > effectiveDate) effectiveDate = h.collegeDate;
+                                    if (h.deptDate && h.deptDate > effectiveDate) effectiveDate = h.deptDate;
+                                }
+                                
+                                if (effectiveDate && effectiveDate >= maxDate) {
+                                    maxDate = effectiveDate;
+                                    
+                                    if (['direct', 'name_change', 'format'].includes(hType)) {
+                                        if (h.univDate) {
+                                            const parts = h.univDate.split('-');
+                                            const y = parseInt(parts[0]) - 1911;
+                                            const m = parseInt(parts[1]);
+                                            const d = parseInt(parts[2]);
+                                            progressLabel = `依${y}年${m}月${d}日${h.issueNumber||'__'}函辦理`;
+                                        } else {
+                                            progressLabel = h.label;
+                                        }
+                                    } else {
+                                         if(h.univDate) progressLabel = `${toROC(h.univDate)} 校級通過`;
+                                         else if(h.collegeDate) progressLabel = `${toROC(h.collegeDate)} 院級通過`;
+                                         else if(h.deptDate) progressLabel = `${toROC(h.deptDate)} 系級通過`;
+                                    }
+                                }
+                            });
+
+                            // 2. 計算各級別最近通過日期
+                            let maxUniv = '', maxCollege = '', maxDept = '';
+                            (r.history || []).forEach(h => {
+                                if(h.univDate && h.univDate > maxUniv) maxUniv = h.univDate;
+                                if(h.collegeDate && h.collegeDate > maxCollege) maxCollege = h.collegeDate;
+                                if(h.deptDate && h.deptDate > maxDept) maxDept = h.deptDate;
+                            });
+
+                            list.push({
+                                id: r.id,
+                                colName: col.name,
+                                deptName: dept.name,
+                                ruleName: r.name,
+                                progress: progressLabel,
+                                maxUniv,
+                                maxCollege,
+                                maxDept,
+                                checkStatus: r.checkStatus || 'pending',
+                                note: r.note
+                            });
+                        });
+                    });
+                });
+                return list;
+            }, [data]);
+
+            const getStatusBadge = (s) => {
+                if(s==='pass') return <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold flex justify-center items-center gap-1"><Icons.Check className="text-[10px]"/> 通過</span>;
+                if(s==='fix') return <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold flex justify-center items-center gap-1"><Icons.Alert className="text-[10px]"/> 須補正</span>;
+                return <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold flex justify-center items-center gap-1"><Icons.Dot className="text-[10px]"/> 待確認</span>;
+            };
+
+            return (
+                <div className="max-w-[1920px] mx-auto animate-fade-in p-8 pb-20">
+                    <div className="bg-white rounded-2xl shadow-soft border border-primary-200 overflow-hidden">
+                        <div className="px-8 py-6 border-b border-primary-100 flex justify-between items-center bg-primary-50">
+                            <h2 className="font-bold text-lg text-primary-800 flex items-center gap-2">
+                                <Icons.Table className="text-primary-600"/> 實習委員會控管報表
+                            </h2>
+                            <div className="flex gap-4">
+                                <span className="text-sm font-bold text-primary-500 bg-white px-3 py-1 rounded-full shadow-sm border border-primary-100">
+                                    共 {reportData.length} 筆法規
+                                </span>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-bold border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-6 py-4 whitespace-nowrap bg-gray-50 sticky left-0 z-10">學院 / 學系</th>
+                                        <th className="px-6 py-4 min-w-[240px]">法規名稱</th>
+                                        <th className="px-6 py-4 min-w-[200px]">最新進度</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近系級</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近院級</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-blue-600">最近校級</th>
+                                        <th className="px-6 py-4 whitespace-nowrap text-center">查核結果</th>
+                                        <th className="px-6 py-4 min-w-[200px]">整體備註</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {reportData.map((row) => (
+                                        <tr key={row.id} className="hover:bg-blue-50/30 transition-colors group">
+                                            <td className="px-6 py-4 bg-white group-hover:bg-blue-50/30 sticky left-0 z-10 border-r border-transparent group-hover:border-blue-100">
+                                                <div className="font-bold text-primary-900">{row.deptName}</div>
+                                                <div className="text-xs text-gray-400">{row.colName}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-primary-800">{row.ruleName}</td>
+                                            <td className="px-6 py-4 text-primary-600 text-xs font-bold">{row.progress}</td>
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">{toROC(row.maxDept) || '-'}</td>
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">{toROC(row.maxCollege) || '-'}</td>
+                                            <td className="px-4 py-4 text-center font-num text-blue-600 font-bold bg-blue-50/20">{toROC(row.maxUniv) || '-'}</td>
+                                            <td className="px-6 py-4 text-center">{getStatusBadge(row.checkStatus)}</td>
+                                            <td className="px-6 py-4 text-gray-500 text-xs whitespace-pre-wrap">{row.note}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const App = () => {
             const [data, setData] = useState(() => {
                 const saved = localStorage.getItem('reg_tracker_pro_v15');
@@ -977,6 +1103,8 @@
                             {/* New Navigation Item */}
                             <button onClick={()=>setActiveTab({type: 'meetings'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-4 rounded-lg ${activeTab.type==='meetings'?'active':''}`}><Icons.Gavel className="text-base"/> 校級會議紀錄</button>
 
+                            <button onClick={()=>setActiveTab({type: 'report'})} className={`nav-item w-full flex items-center gap-3 px-4 py-3 text-sm font-bold mb-4 rounded-lg ${activeTab.type==='report'?'active':''}`}><Icons.Table className="text-base"/> 實習委員會控管報表</button>
+
                             <div className="px-4 text-[10px] font-bold uppercase text-primary-400 tracking-wider mb-2 flex justify-between items-center">
                                 <span>學院列表</span>
                                 <button onClick={addCollege} className="text-primary-600 hover:bg-primary-50 p-1 rounded"><Icons.Plus className="text-base"/></button>
@@ -1025,6 +1153,8 @@
                         <div className="flex-1 overflow-y-auto p-10 scroll-smooth">
                             {activeTab.type === 'dashboard' ? (
                                 <Dashboard data={data}/>
+                            ) : activeTab.type === 'report' ? (
+                                <ControlReport data={data} />
                             ) : activeTab.type === 'meetings' ? (
                                 <SchoolMeetingView meetings={meetings} onUpdateMeetings={setMeetings} fullData={data} />
                             ) : activeTab.type === 'college' && activeCollege ? (
