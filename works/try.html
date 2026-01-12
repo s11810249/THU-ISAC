@@ -372,7 +372,7 @@
                          const d = parseInt(parts[2]);
                          dateStr = `${y} 年 ${m} 月 ${d} 日`;
                      }
-                     cardTitle = `經${h.approvingUnit||'______'}核定自民國 ${dateStr} 起更名為${h.newDeptName||'______'}，本法規更名為${h.newRegulationName||'______'}`;
+                     cardTitle = `經${h.approvingUnit||'______'}核定自 民國${dateStr}起 更名為「${h.newDeptName||'______'}」，本法規更名為「${h.newRegulationName||'______'}」`;
                 } else if (isNewEnactment) {
                     cardTitle = h.regulationName || '新訂定法規';
                 } else if (isDirect && h.univDate) {
@@ -651,10 +651,8 @@
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-primary-400 uppercase">生效日期</label>
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1"><DateInput label="" dateValue={h.effectiveDate} onChange={v=>updateHist(index,'effectiveDate',v)} placeholder="日期"/></div>
-                                                <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="紀錄確認" />
-                                            </div>
+                                            {/* 這裡移除了 VerificationButton */}
+                                            <DateInput label="" dateValue={h.effectiveDate} onChange={v=>updateHist(index,'effectiveDate',v)} placeholder="日期"/>
                                         </div>
                                     </div>
                                     <div className="space-y-1">
