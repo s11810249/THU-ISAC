@@ -715,14 +715,14 @@
         const SchoolMeetingView = ({ meetings, onUpdateMeetings, fullData }) => {
             const [selectedId, setSelectedId] = useState(null);
             
-            // Sort meetings by date descending
+            // 【優化 5】確保會議列表由新到舊排序
             const sortedMeetings = useMemo(() => {
                 return [...meetings].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
             }, [meetings]);
 
             const activeMeeting = useMemo(() => meetings.find(m => m.id === selectedId) || sortedMeetings[0], [meetings, selectedId, sortedMeetings]);
             
-            // Auto-group logic
+            // 抓取符合該日期的法規資料
             const matchedRegulations = useMemo(() => {
                 if (!activeMeeting || !activeMeeting.date) return [];
                 const list = [];
@@ -730,6 +730,7 @@
                     col.departments.forEach(dept => {
                         [...dept.committeeRules, ...dept.internshipRules].forEach(rule => {
                             (rule.history || []).forEach(h => {
+                                // 維持原邏輯：只要日期符合就抓取 (不執行過濾)
                                 if (h.univDate === activeMeeting.date) {
                                     list.push({
                                         id: rule.id,
@@ -748,6 +749,28 @@
                 return list;
             }, [activeMeeting, fullData]);
 
+            // 【優化 3 & 4】資料分組 (Grouping) 與 統計 (Stats)
+            const { groupedData, stats } = useMemo(() => {
+                const groups = {};
+                const s = { total: 0, new: 0, fix: 0 };
+
+                matchedRegulations.forEach(item => {
+                    // 分組結構：學院 -> 學系 -> 法規列表
+                    if (!groups[item.colName]) groups[item.colName] = {};
+                    if (!groups[item.colName][item.deptName]) groups[item.colName][item.deptName] = [];
+                    groups[item.colName][item.deptName].push(item);
+
+                    // 簡易統計邏輯
+                    s.total++;
+                    if (item.histLabel && (item.histLabel.includes('訂定') || item.histLabel.includes('新訂'))) {
+                        s.new++;
+                    } else {
+                        s.fix++;
+                    }
+                });
+                return { groupedData: groups, stats: s };
+            }, [matchedRegulations]);
+
             const addMeeting = () => {
                 const newId = generateId();
                 const today = new Date();
@@ -756,7 +779,14 @@
                 setSelectedId(newId);
             };
 
+            // 【優化 2】修改日期時的防呆警告
             const updateActive = (field, val) => {
+                if (field === 'date' && val !== activeMeeting.date) {
+                    if (matchedRegulations.length > 0) {
+                        const msg = `⚠️ 危險操作警告！\n\n此日期目前已有 ${matchedRegulations.length} 筆關聯法規。\n由於系統是透過「日期」來連結會議與法規，修改日期將導致這些法規紀錄脫鉤（消失在列表中）。\n\n您確定要修改嗎？`;
+                        if (!confirm(msg)) return;
+                    }
+                }
                 onUpdateMeetings(meetings.map(m => m.id === activeMeeting.id ? { ...m, [field]: val } : m));
             };
 
@@ -769,85 +799,142 @@
 
             return (
                 <div className="flex h-full animate-fade-in">
-                    {/* Left List */}
-                    <div className="w-80 border-r border-primary-200 bg-white flex flex-col h-full">
-                        <div className="p-6 border-b border-primary-100 flex justify-between items-center bg-primary-50">
-                            <h2 className="font-bold text-primary-800">會議列表</h2>
-                            <button onClick={addMeeting} className="p-2 bg-white text-blue-600 rounded-lg shadow-sm hover:bg-blue-50 transition-colors"><Icons.Plus className="text-sm"/></button>
+                    {/* 左側：會議列表 */}
+                    <div className="w-80 border-r border-primary-200 bg-white flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
+                        <div className="p-5 border-b border-primary-100 flex justify-between items-center bg-white">
+                            <h2 className="font-bold text-primary-800 text-lg flex items-center gap-2">
+                                <Icons.Gavel className="text-primary-600"/> 會議列表
+                            </h2>
+                            <button onClick={addMeeting} className="w-8 h-8 flex items-center justify-center bg-primary-50 text-primary-600 rounded-full hover:bg-primary-100 transition-colors"><Icons.Plus className="text-sm"/></button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
                             {sortedMeetings.map(m => (
                                 <div 
                                     key={m.id} 
                                     onClick={() => setSelectedId(m.id)}
-                                    className={`p-4 rounded-xl cursor-pointer border transition-all ${activeMeeting?.id === m.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-100' : 'bg-white border-primary-100 hover:border-primary-300'}`}
+                                    className={`p-4 rounded-xl cursor-pointer border-l-4 transition-all group ${activeMeeting?.id === m.id ? 'bg-blue-50/60 border-blue-500 shadow-sm' : 'bg-white border-transparent hover:bg-gray-50'}`}
                                 >
-                                    <div className="text-[10px] font-bold text-gray-400 font-num mb-1">{toROC(m.date)}</div>
-                                    <div className={`font-bold text-sm ${activeMeeting?.id === m.id ? 'text-blue-800' : 'text-primary-700'}`}>{m.name}</div>
+                                    <div className={`text-[11px] font-bold font-num mb-1 flex items-center gap-1 ${activeMeeting?.id === m.id ? 'text-blue-600' : 'text-gray-400'}`}>
+                                        <Icons.Calendar className="text-[10px]"/> {toROC(m.date)}
+                                    </div>
+                                    <div className={`font-bold text-sm ${activeMeeting?.id === m.id ? 'text-primary-900' : 'text-primary-700 group-hover:text-primary-900'}`}>{m.name}</div>
                                 </div>
                             ))}
-                            {sortedMeetings.length === 0 && <div className="text-center text-xs text-gray-400 py-8">點擊 + 新增會議</div>}
+                            {sortedMeetings.length === 0 && <div className="text-center text-xs text-gray-400 py-10">點擊上方 + 新增會議</div>}
                         </div>
                     </div>
 
-                    {/* Right Details */}
-                    <div className="flex-1 overflow-y-auto bg-[#f4f7fb] p-8">
+                    {/* 右側：詳細內容 */}
+                    <div className="flex-1 overflow-y-auto bg-[#f4f7fb] p-10">
                         {activeMeeting ? (
-                            <div className="max-w-4xl mx-auto">
-                                <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 mb-8">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600"><Icons.Gavel className="text-2xl"/></div>
-                                            <div>
+                            <div className="max-w-5xl mx-auto">
+                                {/* 會議資訊卡片 */}
+                                <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 mb-8 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 rounded-bl-[100px] -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
+                                    
+                                    <div className="flex justify-between items-start mb-8 relative z-10">
+                                        <div className="flex items-center gap-5">
+                                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                                                <Icons.Gavel className="text-3xl"/>
+                                            </div>
+                                            <div className="flex-1">
                                                 <div className="text-xs font-bold text-primary-400 uppercase tracking-widest mb-1">校級實習委員會</div>
-                                                <input value={activeMeeting.name} onChange={e=>updateActive('name', e.target.value)} className="bg-transparent text-2xl font-bold text-primary-800 outline-none border-b border-transparent hover:border-gray-200 focus:border-blue-300 transition-colors w-full"/>
+                                                <input value={activeMeeting.name} onChange={e=>updateActive('name', e.target.value)} className="bg-transparent text-3xl font-bold text-primary-800 outline-none border-b-2 border-transparent hover:border-gray-200 focus:border-blue-500 transition-all w-full placeholder-gray-300"/>
                                             </div>
                                         </div>
-                                        <button onClick={deleteActive} className="text-gray-300 hover:text-red-500 p-2"><Icons.Trash className="text-lg"/></button>
+                                        <button onClick={deleteActive} className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="刪除會議"><Icons.Trash className="text-xl"/></button>
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                        <div className="space-y-1">
-                                            <DateInput label="會議召開日期" dateValue={activeMeeting.date} onChange={v=>updateActive('date', v)} />
-                                            <div className="text-[10px] text-gray-400 px-1 pt-1">* 系統將自動抓取所有法規中「校級通過日期」為此日期的項目</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                        <div className="col-span-1">
+                                            <DateInput label="會議召開日期 (連結鍵)" dateValue={activeMeeting.date} onChange={v=>updateActive('date', v)} />
+                                            <div className="mt-2 text-[11px] text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 flex gap-2 items-start">
+                                                <Icons.Alert className="text-sm mt-0.5 shrink-0"/> 
+                                                <span>修改此日期將會重新抓取對應法規，請謹慎操作。</span>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-primary-400 uppercase">會議備註</label>
-                                            <textarea className="clean-input w-full text-sm text-primary-700 h-[52px] resize-none bg-gray-50/50 p-2 rounded border border-gray-100" value={activeMeeting.note} onChange={e=>updateActive('note', e.target.value)} placeholder="備註事項..."></textarea>
+                                        <div className="col-span-2">
+                                            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 h-full">
+                                                <label className="text-[10px] font-bold text-primary-400 uppercase mb-2 block">會議備註事項</label>
+                                                <textarea className="w-full bg-transparent text-sm text-primary-700 h-20 resize-none outline-none placeholder-gray-400" value={activeMeeting.note} onChange={e=>updateActive('note', e.target.value)} placeholder="填寫備註..."></textarea>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
+                                {/* 通過法規列表區塊 */}
                                 <div>
-                                    <h3 className="text-lg font-bold text-primary-800 mb-4 flex items-center gap-2">
-                                        通過法規一覽 
-                                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-num">{matchedRegulations.length}</span>
-                                    </h3>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-bold text-primary-800 flex items-center gap-3">
+                                            通過法規一覽
+                                            <span className="bg-primary-100 text-primary-700 text-sm px-3 py-0.5 rounded-full font-num shadow-sm">Total: {stats.total}</span>
+                                        </h3>
+                                        
+                                        {/* 【優化 4】統計數據展示 */}
+                                        {stats.total > 0 && (
+                                            <div className="flex gap-1 text-sm font-bold bg-white p-1.5 rounded-xl shadow-sm border border-primary-100">
+                                                <div className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> 新訂 {stats.new}</div>
+                                                <div className="px-3 py-1 rounded-lg bg-blue-50 text-blue-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"></div> 修正 {stats.fix}</div>
+                                            </div>
+                                        )}
+                                    </div>
                                     
-                                    {matchedRegulations.length === 0 ? (
-                                        <div className="bg-white border-2 border-dashed border-primary-200 rounded-xl p-12 text-center text-primary-400 flex flex-col items-center gap-2">
-                                            <Icons.ScaleBalanced className="text-3xl opacity-20"/>
-                                            <p>此日期尚無任何法規通過紀錄</p>
+                                    {Object.keys(groupedData).length === 0 ? (
+                                        <div className="bg-white border-2 border-dashed border-primary-200 rounded-2xl p-16 text-center flex flex-col items-center gap-4">
+                                            <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center">
+                                                <Icons.ScaleBalanced className="text-3xl text-primary-300"/>
+                                            </div>
+                                            <div>
+                                                <p className="text-primary-800 font-bold text-lg">尚無法規紀錄</p>
+                                                <p className="text-primary-400 text-sm mt-1">請確認法規的「校級通過日期」是否設定為 {toROC(activeMeeting.date)}</p>
+                                            </div>
                                         </div>
                                     ) : (
-                                        <div className="space-y-3">
-                                            {matchedRegulations.map((item, idx) => (
-                                                <div key={idx} className="bg-white p-4 rounded-xl border border-primary-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                                                    <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center text-primary-600 font-bold text-xs font-num">{idx+1}</div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{item.colName}</span>
-                                                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{item.deptName}</span>
-                                                            {item.histType !== 'standard' && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{PROCESS_TYPES.find(p=>p.id===item.histType)?.label}</span>}
-                                                        </div>
-                                                        <div className="font-bold text-primary-800">{item.ruleName}</div>
-                                                        <div className="text-xs text-gray-500 mt-1">修正內容：{item.histLabel}</div>
+                                        <div className="space-y-6">
+                                            {/* 【優化 3】分組顯示：學院 -> 學系 */}
+                                            {Object.entries(groupedData).map(([colName, depts]) => (
+                                                <div key={colName} className="bg-white rounded-2xl border border-primary-100 shadow-sm overflow-hidden animate-fade-in">
+                                                    {/* 學院標題 */}
+                                                    <div className="bg-primary-50/50 px-6 py-3 border-b border-primary-100 flex items-center gap-2">
+                                                        <Icons.Building className="text-primary-400"/>
+                                                        <span className="font-bold text-primary-800">{colName}</span>
                                                     </div>
-                                                    {item.note && (
-                                                        <div className="max-w-xs text-xs text-gray-400 bg-gray-50 p-2 rounded border border-gray-100">
-                                                            {item.note}
-                                                        </div>
-                                                    )}
+                                                    
+                                                    <div className="p-6 space-y-6">
+                                                        {Object.entries(depts).map(([deptName, rules]) => (
+                                                            <div key={deptName} className="relative pl-4 border-l-2 border-primary-100">
+                                                                {/* 學系標題 */}
+                                                                <div className="text-xs font-bold text-primary-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                                                    <Icons.Dept className="text-[10px]"/> {deptName}
+                                                                </div>
+                                                                
+                                                                <div className="space-y-3">
+                                                                    {rules.map((item, idx) => (
+                                                                        <div key={idx} className="bg-white p-4 rounded-xl border border-primary-100 hover:border-primary-300 hover:shadow-md transition-all flex items-start gap-4 group">
+                                                                            <div className={`mt-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${item.histLabel && (item.histLabel.includes('訂定')||item.histLabel.includes('新訂')) ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                                                {idx + 1}
+                                                                            </div>
+                                                                            <div className="flex-1">
+                                                                                <div className="flex items-center gap-2 mb-1">
+                                                                                    {item.histType !== 'standard' && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">{PROCESS_TYPES.find(p=>p.id===item.histType)?.label}</span>}
+                                                                                </div>
+                                                                                <div className="font-bold text-primary-900 text-lg mb-1">{item.ruleName}</div>
+                                                                                <div className="text-sm text-primary-600 bg-primary-50/50 px-3 py-2 rounded-lg inline-block">
+                                                                                    <span className="font-bold text-primary-400 text-xs mr-2">修正內容</span>
+                                                                                    {item.histLabel}
+                                                                                </div>
+                                                                            </div>
+                                                                            {item.note && (
+                                                                                <div className="hidden xl:block max-w-xs text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100 italic">
+                                                                                    {item.note}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -856,8 +943,10 @@
                             </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-primary-300">
-                                <Icons.Gavel className="text-6xl mb-4 opacity-20"/>
-                                <p>請選擇或新增會議紀錄</p>
+                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-soft">
+                                    <Icons.Gavel className="text-4xl opacity-50"/>
+                                </div>
+                                <p className="text-lg font-bold">請從左側選擇或新增會議紀錄</p>
                             </div>
                         )}
                     </div>
