@@ -524,9 +524,18 @@
         };
 
         const RegulationRow = ({ reg, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, templates, onManageTemplates }) => {
-            const [histOpen, setHistOpen] = useState(false);
+            const [isCollapsed, setIsCollapsed] = useState(false); // 預設展開
             const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
             const templateBtnRef = useRef(null);
+            const noteRef = useRef(null);
+
+            // 自動調整備註高度
+            useEffect(() => {
+                if (noteRef.current) {
+                    noteRef.current.style.height = 'auto';
+                    noteRef.current.style.height = noteRef.current.scrollHeight + 'px';
+                }
+            }, [reg.note, isCollapsed]);
 
             const latest = useMemo(() => {
                 let max = '', label = '無紀錄', stage = 'none', type = 'standard';
@@ -580,13 +589,22 @@
             const delHist = (idx) => confirm("確定刪除此歷程？") && onUpdate({...reg, history:reg.history.filter((_,i)=>i!==idx)});
 
             return (
-                <div className="bg-white border border-primary-200 rounded-xl p-6 mb-4 shadow-sm hover:shadow-md transition-all relative z-10 group focus-within:z-50">
-                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6 pb-4 border-b border-primary-100">
-                        <div className="flex-1 w-full">
-                             <label className="text-[10px] font-bold text-primary-400 uppercase tracking-wider mb-1 block">法規名稱</label>
-                             <input className="clean-input w-full text-lg font-bold text-primary-900 pb-1" value={reg.name} onChange={e=>onUpdate({...reg, name:e.target.value})} placeholder="輸入名稱..."/>
+                <div className="bg-white border border-primary-200 rounded-xl mb-4 shadow-sm hover:shadow-md transition-all relative z-10 group overflow-hidden">
+                    {/* Header with toggle */}
+                    <div 
+                        className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center p-6 border-b border-primary-100 cursor-pointer hover:bg-slate-50 transition-colors"
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                    >
+                        <div className="flex items-center gap-3 flex-1 w-full">
+                            <button className="text-slate-400 hover:text-blue-600 transition-colors">
+                                {isCollapsed ? <Icons.ChevronDown className="text-lg"/> : <Icons.ChevronUp className="text-lg"/>}
+                            </button>
+                            <div className="flex-1" onClick={e => e.stopPropagation()}>
+                                <label className="text-[10px] font-bold text-primary-400 uppercase tracking-wider mb-1 block">法規名稱</label>
+                                <input className="clean-input w-full text-lg font-bold text-primary-900 pb-1 bg-transparent" value={reg.name} onChange={e=>onUpdate({...reg, name:e.target.value})} placeholder="輸入名稱..."/>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                             <button onClick={onMoveUp} disabled={isFirst} className={`p-2 rounded-lg transition-colors ${isFirst?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowUp className="text-sm"/></button>
                             <button onClick={onMoveDown} disabled={isLast} className={`p-2 rounded-lg transition-colors ${isLast?'text-gray-200':'text-gray-400 hover:bg-primary-50 hover:text-primary-600'}`}><Icons.ArrowDown className="text-sm"/></button>
                             <div className="w-px h-6 bg-primary-200 mx-2"></div>
@@ -594,148 +612,95 @@
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
-                        <div className="bg-primary-50 border border-primary-100 rounded-lg p-4 flex flex-col justify-center">
-                            <div className="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${latest.date?'bg-primary-500 animate-pulse':'bg-primary-300'}`}></span> 最新修法進度</div>
-                            <div className="font-num text-xl font-bold text-primary-800">{latest.label}</div>
-                            {latest.type === 'standard' && latest.stage!=='univ'&&latest.stage!=='none'&&<div className="text-xs text-amber-600 font-bold mt-2 flex items-center gap-1"><Icons.Alert className="text-xs"/> 尚未完成校級備查</div>}
-                            {(latest.type !== 'standard' && latest.type) && <div className="text-xs text-primary-500 font-bold mt-2 flex items-center gap-1">🔖 {PROCESS_TYPES.find(p=>p.id===latest.type)?.label}</div>}
-                        </div>
-                        <div className={`p-4 rounded-lg border ${cStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
-                            <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Cloud className="text-xs"/> 系所雲端</label><StatusTag s={cStat}/></div>
-                            <select value={reg.cloudVersion||''} onChange={e=>onUpdate({...reg, cloudVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
-                        </div>
-                        <div className={`p-4 rounded-lg border ${sStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
-                            <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Scale className="text-xs"/> 法規系統</label><StatusTag s={sStat}/></div>
-                            <select value={reg.systemVersion||''} onChange={e=>onUpdate({...reg, systemVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
-                        </div>
-                    </div>
-
-                    <div className="border-t border-primary-100 pt-4 mt-6">
-                         <div className="space-y-3">
-                            <div className="flex items-center justify-between cursor-pointer group" onClick={()=>setHistOpen(!histOpen)}>
-                                <h5 className="text-xs font-bold text-primary-400 uppercase tracking-wider flex items-center gap-1"><Icons.History className="text-xs"/> 修法歷程 {histOpen ? <Icons.ChevronUp className="text-xs"/> : <Icons.ChevronDown className="text-xs"/>}</h5>
-                                <button onClick={(e)=>{e.stopPropagation(); addHist(); setHistOpen(true);}} className="text-xs text-primary-600 font-bold hover:bg-primary-50 px-3 py-1.5 rounded-lg flex gap-1 items-center transition-colors"><Icons.Plus className="text-xs"/> 新增歷程</button>
-                            </div>
-                            {histOpen && (
-                                <div className="space-y-4 animate-fade-in">
-                                    <Timeline history={reg.history} />
-                                    {(reg.history||[]).map((h,i) => {
-                                        const isDirect = h.type !== 'standard' && h.type !== undefined;
-                                        return (
-                                            <div key={h.id} className="bg-primary-50 rounded-lg p-4 text-sm border border-primary-100 flex flex-col gap-3">
-                                                <div className="flex justify-between items-start gap-4">
-                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] font-bold text-primary-400 uppercase">歷程名稱</label>
-                                                            <input className="clean-input w-full text-sm font-bold text-primary-700 pb-1" value={h.label} onChange={e=>updateHist(i,'label',e.target.value)} placeholder="名稱"/>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] font-bold text-primary-400 uppercase">修法類型</label>
-                                                            <select value={h.type || 'standard'} onChange={e=>updateHist(i,'type',e.target.value)} className="clean-input w-full text-xs text-primary-600 font-bold pb-1 cursor-pointer">
-                                                                {PROCESS_TYPES.map(pt=><option key={pt.id} value={pt.id}>{pt.label}</option>)}
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                    <button onClick={()=>delHist(i)} className="text-gray-300 hover:text-red-500 p-1.5 rounded hover:bg-white transition-all"><Icons.Trash className="text-base"/></button>
-                                                </div>
-                                                {isDirect ? (
-                                                    <div className="grid grid-cols-3 gap-4">
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] font-bold text-primary-400 uppercase">授權單位/依據</label>
-                                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.directUnit || ''} onChange={e=>updateHist(i, 'directUnit', e.target.value)} placeholder="例如：教務處"/>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <label className="text-[10px] font-bold text-primary-400 uppercase">發文字號</label>
-                                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.issueNumber || ''} onChange={e=>updateHist(i, 'issueNumber', e.target.value)} placeholder="字號"/>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <DateInput label="發文日期" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="日期"/>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="grid grid-cols-3 gap-4">
-                                                        <div className="space-y-1 relative">
-                                                            <div className="flex justify-between items-end">
-                                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">系級</label>
-                                                                <select value={h.deptMeetingType||'affairs'} onChange={e=>updateHist(i,'deptMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
-                                                                    {DEPT_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex-1"><DateInput label="" dateValue={h.deptDate} onChange={v=>updateHist(i,'deptDate',v)} placeholder="日期"/></div>
-                                                                <VerificationButton isVerified={h.deptVerified} onToggle={()=>updateHist(i, 'deptVerified', !h.deptVerified)} label="系級紀錄確認" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-1 relative">
-                                                            <div className="flex justify-between items-end">
-                                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">院級</label>
-                                                                <select value={h.collegeMeetingType||'affairs'} onChange={e=>updateHist(i,'collegeMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
-                                                                    {COLLEGE_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
-                                                                </select>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex-1"><DateInput label="" dateValue={h.collegeDate} onChange={v=>updateHist(i,'collegeDate',v)} placeholder="日期"/></div>
-                                                                <VerificationButton isVerified={h.collegeVerified} onToggle={()=>updateHist(i, 'collegeVerified', !h.collegeVerified)} label="院級紀錄確認" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            <div className="flex justify-between items-end">
-                                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">校級</label>
-                                                                <span className="text-[10px] text-primary-300 font-bold">實習委員會</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(i,'univDate',v)} placeholder="日期"/></div>
-                                                                <VerificationButton isVerified={h.univVerified} onToggle={()=>updateHist(i, 'univVerified', !h.univVerified)} label="校級紀錄確認" />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-primary-400 uppercase">備註說明</label>
-                                                    <textarea className="clean-input w-full text-xs text-primary-700 h-10 resize-y" value={h.note||''} onChange={e=>updateHist(i,'note',e.target.value)} placeholder="備註..."></textarea>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                    {(reg.history||[]).length===0 && <div className="text-center text-xs text-gray-400 py-4 border-2 border-dashed border-primary-200 rounded-xl">尚無修法歷程</div>}
+                    {!isCollapsed && (
+                        <div className="p-6 animate-fade-in">
+                            {/* Status Cards */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-6">
+                                <div className="bg-primary-50 border border-primary-100 rounded-lg p-4 flex flex-col justify-center">
+                                    <div className="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${latest.date?'bg-primary-500 animate-pulse':'bg-primary-300'}`}></span> 最新修法進度</div>
+                                    <div className="font-num text-xl font-bold text-primary-800">{latest.label}</div>
+                                    {latest.type === 'standard' && latest.stage!=='univ'&&latest.stage!=='none'&&<div className="text-xs text-amber-600 font-bold mt-2 flex items-center gap-1"><Icons.Alert className="text-xs"/> 尚未完成校級備查</div>}
+                                    {(latest.type !== 'standard' && latest.type) && <div className="text-xs text-primary-500 font-bold mt-2 flex items-center gap-1">🔖 {PROCESS_TYPES.find(p=>p.id===latest.type)?.label}</div>}
                                 </div>
-                            )}
-                        </div>
-                    </div>
+                                <div className={`p-4 rounded-lg border ${cStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Cloud className="text-xs"/> 系所雲端</label><StatusTag s={cStat}/></div>
+                                    <select value={reg.cloudVersion||''} onChange={e=>onUpdate({...reg, cloudVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
+                                </div>
+                                <div className={`p-4 rounded-lg border ${sStat==='ok'?'bg-white border-primary-200':'bg-red-50 border-red-200'} flex flex-col justify-center`}>
+                                    <div className="flex justify-between mb-2"><label className="text-[10px] font-bold text-primary-500 uppercase flex gap-1 items-center"><Icons.Scale className="text-xs"/> 法規系統</label><StatusTag s={sStat}/></div>
+                                    <select value={reg.systemVersion||''} onChange={e=>onUpdate({...reg, systemVersion:e.target.value})} className="w-full bg-transparent text-sm font-bold text-primary-700 outline-none cursor-pointer py-1 border-b border-transparent hover:border-primary-300 transition-colors">{opts.map((o,i)=><option key={i} value={o.val}>{o.lbl}</option>)}</select>
+                                </div>
+                            </div>
 
-                    <div className="mt-6 pt-4 border-t border-primary-100">
-                        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-100">
-                            <div className="text-xs font-bold text-primary-500 uppercase flex items-center gap-2">
-                                <Icons.Wrench className="text-sm"/> 法規查核結果
+                            {/* Timeline Always Visible */}
+                            <div className="mb-6">
+                                <Timeline history={reg.history} />
                             </div>
-                            <div className="flex gap-2">
-                                {['pending', 'fix', 'pass'].map(status => {
-                                    const isActive = (reg.checkStatus || 'pending') === status;
-                                    let style = "bg-white text-gray-500 border-gray-200 hover:bg-gray-100";
-                                    let icon = <Icons.Dot className="text-[8px] mr-1"/>;
-                                    let label = "待確認";
-                                    if(status === 'fix') { label = "須補正"; icon = <Icons.Alert className="text-xs mr-1"/>; if(isActive) style = "bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30"; }
-                                    else if (status === 'pass') { label = "通過"; icon = <Icons.Check className="text-xs mr-1"/>; if(isActive) style = "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30"; }
-                                    else { if(isActive) style = "bg-gray-600 text-white border-gray-600 shadow-md shadow-gray-500/30"; }
-                                    return <button key={status} onClick={() => onUpdate({...reg, checkStatus: status})} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center ${style}`}>{icon} {label}</button>;
-                                })}
+
+                            {/* 2-Col Layout: History (Left) / Check & Note (Right) */}
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 border-t border-primary-100 pt-6">
+                                {/* Left: History Editor */}
+                                <div className="xl:col-span-2 space-y-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-xs font-bold text-primary-400 uppercase tracking-wider flex items-center gap-1"><Icons.History className="text-xs"/> 修法歷程明細</h5>
+                                        <button onClick={addHist} className="text-xs text-primary-600 font-bold hover:bg-primary-50 px-3 py-1.5 rounded-lg flex gap-1 items-center transition-colors"><Icons.Plus className="text-xs"/> 新增歷程</button>
+                                    </div>
+                                    <div className="space-y-4">
+                                        {(reg.history||[]).map((h, i) => (
+                                             <HistoryEditorRow key={h.id || i} h={h} index={i} updateHist={updateHist} delHist={delHist} />
+                                        ))}
+                                        {(reg.history||[]).length===0 && <div className="text-center text-xs text-gray-400 py-8 border-2 border-dashed border-primary-200 rounded-xl bg-primary-50/30">尚無修法歷程</div>}
+                                    </div>
+                                </div>
+
+                                {/* Right: Check Results & Note */}
+                                <div className="space-y-6">
+                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                        <div className="text-xs font-bold text-primary-500 uppercase flex items-center gap-2 mb-3">
+                                            <Icons.Wrench className="text-sm"/> 法規查核結果
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            {['pending', 'fix', 'pass'].map(status => {
+                                                const isActive = (reg.checkStatus || 'pending') === status;
+                                                let style = "bg-white text-gray-500 border-gray-200 hover:bg-gray-100";
+                                                let icon = <Icons.Dot className="text-[8px] mr-1"/>;
+                                                let label = "待確認";
+                                                if(status === 'fix') { label = "須補正"; icon = <Icons.Alert className="text-xs mr-1"/>; if(isActive) style = "bg-red-500 text-white border-red-500 shadow-md shadow-red-500/30"; }
+                                                else if (status === 'pass') { label = "通過"; icon = <Icons.Check className="text-xs mr-1"/>; if(isActive) style = "bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-500/30"; }
+                                                else { if(isActive) style = "bg-gray-600 text-white border-gray-600 shadow-md shadow-gray-500/30"; }
+                                                return <button key={status} onClick={() => onUpdate({...reg, checkStatus: status})} className={`w-full px-4 py-2 rounded-lg text-xs font-bold border transition-all flex items-center justify-center ${style}`}>{icon} {label}</button>;
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">整體備註</label>
+                                            <button ref={templateBtnRef} onClick={()=>setTemplatePickerOpen(!templatePickerOpen)} className="text-xs text-primary-500 font-bold hover:bg-primary-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"><Icons.Clipboard className="text-xs"/> 引用模板</button>
+                                        </div>
+                                        <div className="relative">
+                                            <textarea 
+                                                ref={noteRef}
+                                                className="w-full bg-yellow-50/50 border border-yellow-200 rounded-lg p-3 text-sm text-slate-700 min-h-[120px] focus:ring-2 focus:ring-yellow-100 focus:border-yellow-400 outline-none transition-all overflow-hidden resize-none placeholder-gray-400" 
+                                                value={reg.note||''} 
+                                                onChange={e=>{
+                                                    onUpdate({...reg, note:e.target.value});
+                                                    e.target.style.height = 'auto';
+                                                    e.target.style.height = e.target.scrollHeight + 'px';
+                                                }} 
+                                                placeholder="填寫法規整體備註..."
+                                            ></textarea>
+                                            {templatePickerOpen && <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>{ const val = (reg.note?reg.note+'\n':'')+t; onUpdate({...reg, note:val}); setTemplatePickerOpen(false); }} onClose={()=>setTemplatePickerOpen(false)} safeAreaRef={templateBtnRef}/>}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-primary-100 relative">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-[10px] font-bold text-primary-400 uppercase">整體備註</label>
-                            <button ref={templateBtnRef} onClick={()=>setTemplatePickerOpen(!templatePickerOpen)} className="text-xs text-primary-500 font-bold hover:bg-primary-50 px-2 py-1 rounded flex items-center gap-1 transition-colors"><Icons.Clipboard className="text-xs"/> 引用模板</button>
-                        </div>
-                        <div className="relative">
-                            <textarea className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-slate-700 min-h-[80px] focus:ring-2 focus:ring-primary-100 focus:border-primary-300 outline-none transition-all resize-y placeholder-gray-400" value={reg.note||''} onChange={e=>onUpdate({...reg, note:e.target.value})} placeholder="填寫法規整體備註..."></textarea>
-                            {templatePickerOpen && <NoteTemplatePicker templates={templates} onManage={onManageTemplates} onSelect={t=>{ onUpdate({...reg, note:(reg.note?reg.note+'\n':'')+t}); setTemplatePickerOpen(false); }} onClose={()=>setTemplatePickerOpen(false)} safeAreaRef={templateBtnRef}/>}
-                        </div>
-                    </div>
+                    )}
                 </div>
             );
         };
+        
 
         const DepartmentView = ({ dept, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, templates, onManageTemplates }) => {
             const [isCollapsed, setIsCollapsed] = useState(false);
@@ -1500,7 +1465,7 @@
                                     </div>
 
                                     {/* Tab Switcher */}
-                                    <div className="flex border-b border-gray-200 mb-8">
+                                    <div className="flex justify-center border-b border-gray-200 mb-8">
                                         <button 
                                             onClick={() => setDeptRuleTab('committee')}
                                             className={`px-8 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${deptRuleTab==='committee' ? 'border-primary-600 text-primary-700 bg-primary-50/50 rounded-t-lg' : 'border-transparent text-gray-400 hover:text-primary-600 hover:bg-gray-50'}`}
