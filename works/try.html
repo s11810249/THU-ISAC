@@ -355,7 +355,6 @@
             sortedHistory.forEach(h => {
                 const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
                 
-                // 卡片標題邏輯
                 let cardTitle = h.label;
                 if (isDirect && h.univDate) {
                      const parts = h.univDate.split('-');
@@ -374,7 +373,6 @@
                     note: h.note
                 };
 
-                // 取得狀態 (優先使用 verification 欄位，若無則回退到是否有日期)
                 const getStatus = (ver, date) => ver || (date ? 'verified' : 'missing');
 
                 if (isDirect) {
@@ -387,7 +385,6 @@
                          cardData: cardData
                      });
                 } else {
-                     // 一般修法：系 -> 院 -> 校
                      if (h.deptMeetingType !== 'none') {
                          let label = '系務會議';
                          if (h.deptMeetingType === 'internship') label = '系實習委員會';
@@ -434,23 +431,27 @@
                 );
             };
 
-            // 顏色與樣式定義 helper
-            const getStatusColor = (status, type) => {
-                // type: 'dot', 'text', 'line'
-                if (status === 'missing') { // 紅
+            // 顏色色碼定義 (用於 gradient)
+            const COLOR_CODES = {
+                missing: '#f87171', // red-400
+                unverifiable: '#fb923c', // orange-400
+                verified: '#3c658d', // primary-600 (深藍)
+                grey: '#cedce9' // primary-200 (灰色/淺藍灰)
+            };
+
+            // 取得狀態對應的 Tailwind class (用於圓點與文字)
+            const getStatusClass = (status, type) => {
+                if (status === 'missing') {
                     if (type === 'dot') return 'bg-red-500';
                     if (type === 'text') return 'text-red-500';
-                    if (type === 'line') return 'bg-red-400';
-                }
-                if (status === 'unverifiable') { // 橘
+                } else if (status === 'unverifiable') {
                     if (type === 'dot') return 'bg-orange-500';
                     if (type === 'text') return 'text-orange-500';
-                    if (type === 'line') return 'bg-orange-400';
+                } else { // verified
+                    if (type === 'dot') return 'bg-primary-600'; // 深藍
+                    if (type === 'text') return 'text-primary-800';
                 }
-                // default verified (深藍色)
-                if (type === 'dot') return 'bg-primary-600';
-                if (type === 'text') return 'text-primary-800';
-                if (type === 'line') return 'bg-primary-600'; // 改為深藍色
+                return '';
             };
 
             return (
@@ -469,43 +470,33 @@
                                  const isFirst = i === 0;
                                  const isLast = i === allNodes.length - 1;
                                  
-                                 // 線條顏色邏輯：
-                                 const getLineColor = (s1, s2) => {
-                                     if (s1 === 'missing' || s2 === 'missing') return getStatusColor('missing', 'line');
-                                     if (s1 === 'unverifiable' || s2 === 'unverifiable') return getStatusColor('unverifiable', 'line');
-                                     return getStatusColor('verified', 'line');
-                                 };
+                                 const nodeColorCode = COLOR_CODES[node.status] || COLOR_CODES.verified;
+                                 const greyColorCode = COLOR_CODES.grey;
 
-                                 // 左線
-                                 let leftLineColor;
-                                 if (isFirst) {
-                                     // 第一點的左側延伸線：跟隨該點狀態
-                                     leftLineColor = getStatusColor(node.status, 'line');
-                                 } else {
-                                     const prevNode = allNodes[i-1];
-                                     leftLineColor = getLineColor(prevNode.status, node.status);
-                                 }
+                                 // 左線樣式
+                                 // 如果是第一個：左邊一半是灰色，右邊一半是節點色
+                                 // 如果不是第一個：整條都是節點色 (與前一個節點的右線在中間交會)
+                                 const leftLineStyle = isFirst 
+                                    ? { background: `linear-gradient(to right, ${greyColorCode} 50%, ${nodeColorCode} 50%)` }
+                                    : { backgroundColor: nodeColorCode };
 
-                                 // 右線
-                                 let rightLineColor;
-                                 if (isLast) {
-                                     // 最後一點的右側延伸線：跟隨該點狀態
-                                     rightLineColor = getStatusColor(node.status, 'line');
-                                 } else {
-                                     const nextNode = allNodes[i+1];
-                                     rightLineColor = getLineColor(node.status, nextNode.status);
-                                 }
+                                 // 右線樣式
+                                 // 如果是最後一個：左邊一半是節點色，右邊一半是灰色
+                                 // 如果不是最後一個：整條都是節點色
+                                 const rightLineStyle = isLast
+                                    ? { background: `linear-gradient(to right, ${nodeColorCode} 50%, ${greyColorCode} 50%)` }
+                                    : { backgroundColor: nodeColorCode };
 
                                  const layoutClass = "flex-1 min-w-[180px]";
-                                 const dotColor = getStatusColor(node.status, 'dot');
-                                 const textColor = getStatusColor(node.status, 'text');
+                                 const dotClass = getStatusClass(node.status, 'dot');
+                                 const textClass = getStatusClass(node.status, 'text');
 
                                  return (
                                      <div key={node.id} className={`relative flex flex-col items-center group ${layoutClass}`}>
                                          
                                          {/* 1. 上方標籤 */}
                                          <div className="h-10 flex items-end mb-2">
-                                            <span className={`text-sm font-bold whitespace-nowrap px-1 ${textColor}`}>
+                                            <span className={`text-sm font-bold whitespace-nowrap px-1 ${textClass}`}>
                                                  {node.label}
                                             </span>
                                          </div>
@@ -513,16 +504,16 @@
                                          {/* 2. 中間圓點與線條 */}
                                          <div className="w-full h-6 relative flex items-center justify-center">
                                              {/* 左半線 */}
-                                             <div className={`absolute left-0 w-1/2 h-[2px] ${leftLineColor}`}></div>
+                                             <div className="absolute left-0 w-1/2 h-[2px]" style={leftLineStyle}></div>
                                              {/* 右半線 */}
-                                             <div className={`absolute right-0 w-1/2 h-[2px] ${rightLineColor}`}></div>
+                                             <div className="absolute right-0 w-1/2 h-[2px]" style={rightLineStyle}></div>
                                              
                                              {/* 圓點 */}
-                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${dotColor}`}></div>
+                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${dotClass}`}></div>
                                          </div>
 
                                          {/* 3. 下方日期 */}
-                                         <div className={`mt-2 font-num text-xs font-bold ${textColor}`}>
+                                         <div className={`mt-2 font-num text-xs font-bold ${textClass}`}>
                                              {node.date ? toROC(node.date) : (node.status==='missing'?'無':'未定')}
                                          </div>
 
