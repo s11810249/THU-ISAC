@@ -361,8 +361,9 @@
                 const isNewEnactment = type === 'new_enactment';
                 
                 let cardTitle = h.label;
+                let specialNote = null; // 用於處理系所更名的特殊備註段落
 
-                // 處理卡片標題
+                // 處理卡片標題與內容
                 if (isDeptNameChange) {
                      let dateStr = '______';
                      if (h.effectiveDate) {
@@ -370,9 +371,13 @@
                          const y = parseInt(parts[0]) - 1911;
                          const m = parseInt(parts[1]);
                          const d = parseInt(parts[2]);
-                         dateStr = `${y} 年 ${m} 月 ${d} 日`;
+                         dateStr = `${y}年${m}月${d}日`;
                      }
-                     cardTitle = `經${h.approvingUnit||'______'}核定自 民國${dateStr}起 更名為「${h.newDeptName||'______'}」，本法規更名為「${h.newRegulationName||'______'}」`;
+                     // 標題改為新法規名稱
+                     cardTitle = `更名為「${h.newRegulationName||'______'}」`;
+                     // 內容：[舊系所]經[核定]...
+                     specialNote = `${h.oldDeptName||'______'}經${h.approvingUnit||'______'}核定自民國${dateStr}起更名為「${h.newDeptName||'______'}」`;
+
                 } else if (isNewEnactment) {
                     cardTitle = h.regulationName || '新訂定法規';
                 } else if (isDirect && h.univDate) {
@@ -389,6 +394,7 @@
                     id: h.id,
                     typeLabel: PROCESS_TYPES.find(p=>p.id===type)?.label,
                     title: cardTitle,
+                    specialNote: specialNote, // 傳遞特殊備註
                     note: h.note
                 };
 
@@ -397,9 +403,9 @@
                 if (isDeptNameChange) {
                      allNodes.push({
                          id: `${h.id}_dept_change`,
-                         label: h.approvingUnit || '系所名稱變更',
+                         label: '系所名稱變更', // 強制顯示為此標題
                          date: h.effectiveDate,
-                         status: getStatus(h.univVerification, h.effectiveDate), // 借用 univVerification
+                         status: getStatus(h.univVerification, h.effectiveDate),
                          hasCard: true,
                          cardData: cardData
                      });
@@ -460,15 +466,14 @@
                 );
             };
 
-            // 顏色色碼定義 (用於 gradient)
+            // 顏色色碼定義
             const COLOR_CODES = {
-                missing: '#f87171', // red-400
-                unverifiable: '#fb923c', // orange-400
-                verified: '#3c658d', // primary-600 (深藍)
-                grey: '#cedce9' // primary-200 (灰色/淺藍灰)
+                missing: '#f87171', 
+                unverifiable: '#fb923c', 
+                verified: '#3c658d', 
+                grey: '#cedce9' 
             };
 
-            // 取得狀態對應的 Tailwind class (用於圓點與文字)
             const getStatusClass = (status, type) => {
                 if (status === 'missing') {
                     if (type === 'dot') return 'bg-red-500';
@@ -477,7 +482,7 @@
                     if (type === 'dot') return 'bg-orange-500';
                     if (type === 'text') return 'text-orange-500';
                 } else { // verified
-                    if (type === 'dot') return 'bg-primary-600'; // 深藍
+                    if (type === 'dot') return 'bg-primary-600'; 
                     if (type === 'text') return 'text-primary-800';
                 }
                 return '';
@@ -510,7 +515,9 @@
                                     ? { background: `linear-gradient(to right, ${nodeColorCode} 50%, ${greyColorCode} 50%)` }
                                     : { backgroundColor: nodeColorCode };
 
-                                 const layoutClass = "flex-1 min-w-[180px]";
+                                 // 修正卡片重疊：如果有卡片，增加該節點的最小寬度到 300px
+                                 const layoutClass = `flex-1 ${node.hasCard ? 'min-w-[300px]' : 'min-w-[180px]'}`;
+                                 
                                  const dotClass = getStatusClass(node.status, 'dot');
                                  const textClass = getStatusClass(node.status, 'text');
 
@@ -526,12 +533,8 @@
 
                                          {/* 2. 中間圓點與線條 */}
                                          <div className="w-full h-6 relative flex items-center justify-center">
-                                             {/* 左半線 */}
                                              <div className="absolute left-0 w-1/2 h-[2px]" style={leftLineStyle}></div>
-                                             {/* 右半線 */}
                                              <div className="absolute right-0 w-1/2 h-[2px]" style={rightLineStyle}></div>
-                                             
-                                             {/* 圓點 */}
                                              <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${dotClass}`}></div>
                                          </div>
 
@@ -553,6 +556,15 @@
                                                      <div className="text-sm font-bold text-slate-700 leading-snug mb-3 break-words">
                                                          {node.cardData.title}
                                                      </div>
+                                                     
+                                                     {/* 特殊備註區塊 (分隔線 + 內容) */}
+                                                     {node.cardData.specialNote && (
+                                                         <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 text-left">
+                                                             {node.cardData.specialNote}
+                                                         </div>
+                                                     )}
+                                                     
+                                                     {/* 原有使用者備註 */}
                                                      {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
                                                  </div>
                                              </div>
@@ -651,7 +663,6 @@
                                         </div>
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-primary-400 uppercase">生效日期</label>
-                                            {/* 這裡移除了 VerificationButton */}
                                             <DateInput label="" dateValue={h.effectiveDate} onChange={v=>updateHist(index,'effectiveDate',v)} placeholder="日期"/>
                                         </div>
                                     </div>
@@ -661,7 +672,7 @@
                                     </div>
                                 </div>
                             ) : isDirect ? (
-                                // 2. 授權逕予修訂 (Original Direct UI)
+                                // 2. 授權逕予修訂
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-white p-3 rounded-lg border border-primary-100">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-primary-400 uppercase">授權單位/依據</label>
@@ -675,10 +686,8 @@
                                         <div className="flex justify-between items-end">
                                             <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">發文日期</label>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(index,'univDate',v)} placeholder="日期"/></div>
-                                            <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="紀錄確認" />
-                                        </div>
+                                        {/* 這裡移除了 VerificationButton */}
+                                        <DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(index,'univDate',v)} placeholder="日期"/>
                                     </div>
                                 </div>
                             ) : (
