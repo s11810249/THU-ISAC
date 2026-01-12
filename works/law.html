@@ -714,24 +714,20 @@
         // --- NEW COMPONENT: SchoolMeetingView ---
         const SchoolMeetingView = ({ meetings, onUpdateMeetings, fullData }) => {
             const [selectedId, setSelectedId] = useState(null);
-            // 新增：法規類型篩選狀態 ('all', 'committee', 'internship')
             const [ruleFilter, setRuleFilter] = useState('all');
             
-            // 確保會議列表由新到舊排序
             const sortedMeetings = useMemo(() => {
                 return [...meetings].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
             }, [meetings]);
 
             const activeMeeting = useMemo(() => meetings.find(m => m.id === selectedId) || sortedMeetings[0], [meetings, selectedId, sortedMeetings]);
             
-            // 抓取符合該日期的法規資料 (加入類型篩選邏輯)
             const matchedRegulations = useMemo(() => {
                 if (!activeMeeting || !activeMeeting.date) return [];
                 const list = [];
                 fullData.forEach(col => {
                     col.departments.forEach(dept => {
                         const rulesToCheck = [];
-                        // 根據篩選狀態決定要檢查哪些法規
                         if (ruleFilter === 'all' || ruleFilter === 'committee') {
                             (dept.committeeRules || []).forEach(r => rulesToCheck.push({...r, ruleType: 'committee'}));
                         }
@@ -741,14 +737,13 @@
 
                         rulesToCheck.forEach(rule => {
                             (rule.history || []).forEach(h => {
-                                // 只要日期符合就抓取
                                 if (h.univDate === activeMeeting.date) {
                                     list.push({
                                         id: rule.id,
                                         colName: col.name,
                                         deptName: dept.name,
                                         ruleName: rule.name,
-                                        ruleType: rule.ruleType, // 紀錄類型以便顯示
+                                        ruleType: rule.ruleType,
                                         histLabel: h.label,
                                         histType: h.type,
                                         note: h.note
@@ -759,9 +754,8 @@
                     });
                 });
                 return list;
-            }, [activeMeeting, fullData, ruleFilter]); // 加入 ruleFilter 相依性
+            }, [activeMeeting, fullData, ruleFilter]);
 
-            // 資料分組與統計
             const { groupedData, stats } = useMemo(() => {
                 const groups = {};
                 const s = { total: 0, new: 0, fix: 0 };
@@ -808,7 +802,7 @@
 
             return (
                 <div className="flex h-full animate-fade-in bg-[#f4f7fb]">
-                    {/* 左側：會議列表 (風格統一：白色背景、右側邊框) */}
+                    {/* 左側：會議列表 */}
                     <div className="w-80 border-r border-primary-200 bg-white flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
                         <div className="p-6 border-b border-primary-100 flex justify-between items-center bg-white">
                             <h2 className="font-bold text-primary-800 text-lg flex items-center gap-2">
@@ -821,7 +815,7 @@
                                 <div 
                                     key={m.id} 
                                     onClick={() => setSelectedId(m.id)}
-                                    className={`p-4 rounded-xl cursor-pointer border-l-4 transition-all group ${activeMeeting?.id === m.id ? 'bg-primary-50 border-primary-500 shadow-sm' : 'bg-white border-transparent hover:bg-gray-50'}`}
+                                    className={`p-4 rounded-md cursor-pointer border-l-4 transition-all group ${activeMeeting?.id === m.id ? 'bg-primary-50 border-primary-500 shadow-sm' : 'bg-white border-transparent hover:bg-gray-50'}`}
                                 >
                                     <div className={`text-[11px] font-bold font-num mb-1 flex items-center gap-1 ${activeMeeting?.id === m.id ? 'text-primary-600' : 'text-gray-400'}`}>
                                         <Icons.Calendar className="text-[10px]"/> {toROC(m.date)}
@@ -833,17 +827,17 @@
                         </div>
                     </div>
 
-                    {/* 右側：詳細內容 */}
-                    <div className="flex-1 overflow-y-auto p-10">
+                    {/* 右側：詳細內容 (依需求改為 p-0) */}
+                    <div className="flex-1 overflow-y-auto p-0">
                         {activeMeeting ? (
-                            <div className="max-w-[1200px] mx-auto space-y-8">
-                                {/* 會議資訊卡片 (風格統一：圓角、陰影、Primary邊框) */}
-                                <div className="bg-white rounded-2xl shadow-soft border border-primary-200 p-8 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 rounded-bl-[100px] -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
+                            <div className="max-w-[1200px] mx-auto space-y-8 p-10">
+                                {/* 會議資訊卡片 (圓角改小 rounded-lg) */}
+                                <div className="bg-white rounded-lg shadow-soft border border-primary-200 p-8 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary-50 rounded-bl-[80px] -mr-16 -mt-16 opacity-50 pointer-events-none"></div>
                                     
                                     <div className="flex justify-between items-start mb-8 relative z-10">
                                         <div className="flex items-center gap-5">
-                                            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary-500/20">
+                                            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-primary-500/20">
                                                 <Icons.Gavel className="text-3xl"/>
                                             </div>
                                             <div className="flex-1">
@@ -851,19 +845,19 @@
                                                 <input value={activeMeeting.name} onChange={e=>updateActive('name', e.target.value)} className="bg-transparent text-3xl font-bold text-primary-800 outline-none border-b-2 border-transparent hover:border-gray-200 focus:border-primary-500 transition-all w-full placeholder-gray-300"/>
                                             </div>
                                         </div>
-                                        <button onClick={deleteActive} className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="刪除會議"><Icons.Trash className="text-xl"/></button>
+                                        <button onClick={deleteActive} className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-md transition-colors" title="刪除會議"><Icons.Trash className="text-xl"/></button>
                                     </div>
                                     
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                         <div className="col-span-1">
                                             <DateInput label="會議召開日期 (連結鍵)" dateValue={activeMeeting.date} onChange={v=>updateActive('date', v)} />
-                                            <div className="mt-2 text-[11px] text-amber-600 bg-amber-50 p-2 rounded border border-amber-100 flex gap-2 items-start">
+                                            <div className="mt-2 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-100 flex gap-2 items-start">
                                                 <Icons.Alert className="text-sm mt-0.5 shrink-0"/> 
                                                 <span>修改此日期將會重新抓取對應法規，請謹慎操作。</span>
                                             </div>
                                         </div>
                                         <div className="col-span-2">
-                                            <div className="bg-primary-50/50 rounded-xl p-4 border border-primary-100 h-full">
+                                            <div className="bg-primary-50/50 rounded-lg p-4 border border-primary-100 h-full">
                                                 <label className="text-[10px] font-bold text-primary-400 uppercase mb-2 block">會議備註事項</label>
                                                 <textarea className="w-full bg-transparent text-sm text-primary-700 h-20 resize-none outline-none placeholder-gray-400" value={activeMeeting.note} onChange={e=>updateActive('note', e.target.value)} placeholder="填寫備註..."></textarea>
                                             </div>
@@ -879,8 +873,7 @@
                                             <span className="bg-primary-100 text-primary-700 text-sm px-3 py-0.5 rounded-full font-num shadow-sm">Total: {stats.total}</span>
                                         </h3>
 
-                                        {/* 新增：子分頁切換 (法規類型篩選) */}
-                                        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-primary-100">
+                                        <div className="flex bg-white p-1 rounded-lg shadow-sm border border-primary-100">
                                             {[
                                                 { id: 'all', label: '全部' },
                                                 { id: 'committee', label: '委員會要點' },
@@ -889,7 +882,7 @@
                                                 <button
                                                     key={type.id}
                                                     onClick={() => setRuleFilter(type.id)}
-                                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${ruleFilter === type.id ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${ruleFilter === type.id ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
                                                 >
                                                     {type.label}
                                                 </button>
@@ -897,16 +890,15 @@
                                         </div>
                                     </div>
 
-                                    {/* 統計摘要 */}
                                     {stats.total > 0 && (
-                                        <div className="flex gap-1 text-sm font-bold bg-white p-2 rounded-xl shadow-sm border border-primary-200 w-fit">
-                                            <div className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> 新訂 {stats.new} 案</div>
-                                            <div className="px-3 py-1 rounded-lg bg-blue-50 text-blue-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"></div> 修正 {stats.fix} 案</div>
+                                        <div className="flex gap-1 text-sm font-bold bg-white p-2 rounded-lg shadow-sm border border-primary-200 w-fit">
+                                            <div className="px-3 py-1 rounded-md bg-emerald-50 text-emerald-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> 新訂 {stats.new} 案</div>
+                                            <div className="px-3 py-1 rounded-md bg-blue-50 text-blue-600 flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500"></div> 修正 {stats.fix} 案</div>
                                         </div>
                                     )}
                                     
                                     {Object.keys(groupedData).length === 0 ? (
-                                        <div className="bg-white border-2 border-dashed border-primary-200 rounded-2xl p-16 text-center flex flex-col items-center gap-4">
+                                        <div className="bg-white border-2 border-dashed border-primary-200 rounded-lg p-16 text-center flex flex-col items-center gap-4">
                                             <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center">
                                                 <Icons.ScaleBalanced className="text-3xl text-primary-300"/>
                                             </div>
@@ -917,10 +909,8 @@
                                         </div>
                                     ) : (
                                         <div className="space-y-6">
-                                            {/* 分組顯示：學院 -> 學系 */}
                                             {Object.entries(groupedData).map(([colName, depts]) => (
-                                                <div key={colName} className="bg-white rounded-2xl border border-primary-200 shadow-soft overflow-hidden animate-fade-in">
-                                                    {/* 學院標題 */}
+                                                <div key={colName} className="bg-white rounded-lg border border-primary-200 shadow-soft overflow-hidden animate-fade-in">
                                                     <div className="bg-primary-50/50 px-6 py-3 border-b border-primary-100 flex items-center gap-2">
                                                         <Icons.Building className="text-primary-400"/>
                                                         <span className="font-bold text-primary-800">{colName}</span>
@@ -929,34 +919,33 @@
                                                     <div className="p-6 space-y-6">
                                                         {Object.entries(depts).map(([deptName, rules]) => (
                                                             <div key={deptName} className="relative pl-4 border-l-2 border-primary-100">
-                                                                {/* 學系標題 */}
                                                                 <div className="text-xs font-bold text-primary-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                                                     <Icons.Dept className="text-[10px]"/> {deptName}
                                                                 </div>
                                                                 
                                                                 <div className="space-y-3">
                                                                     {rules.map((item, idx) => (
-                                                                        <div key={idx} className="bg-white p-4 rounded-xl border border-primary-100 hover:border-primary-300 hover:shadow-md transition-all flex items-start gap-4 group">
+                                                                        <div key={idx} className="bg-white p-4 rounded-lg border border-primary-100 hover:border-primary-300 hover:shadow-md transition-all flex items-start gap-4 group">
                                                                             <div className={`mt-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${item.histLabel && (item.histLabel.includes('訂定')||item.histLabel.includes('新訂')) ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
                                                                                 {idx + 1}
                                                                             </div>
                                                                             <div className="flex-1">
                                                                                 <div className="flex items-center gap-2 mb-1">
-                                                                                    {/* 顯示法規類型標籤 */}
                                                                                     {item.ruleType === 'internship' ? 
-                                                                                        <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded font-bold">實習辦法</span> :
-                                                                                        <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded font-bold">委員會要點</span>
+                                                                                        <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded-md font-bold">實習辦法</span> :
+                                                                                        <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-md font-bold">委員會要點</span>
                                                                                     }
-                                                                                    {item.histType !== 'standard' && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">{PROCESS_TYPES.find(p=>p.id===item.histType)?.label}</span>}
+                                                                                    {item.histType !== 'standard' && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md font-bold">{PROCESS_TYPES.find(p=>p.id===item.histType)?.label}</span>}
                                                                                 </div>
                                                                                 <div className="font-bold text-primary-900 text-lg mb-1">{item.ruleName}</div>
-                                                                                <div className="text-sm text-primary-600 bg-primary-50/50 px-3 py-2 rounded-lg inline-block">
+                                                                                <div className="text-sm text-primary-600 bg-primary-50/50 px-3 py-2 rounded-md inline-block">
                                                                                     <span className="font-bold text-primary-400 text-xs mr-2">修正內容</span>
                                                                                     {item.histLabel}
                                                                                 </div>
                                                                             </div>
+                                                                            {/* 移除 italic */}
                                                                             {item.note && (
-                                                                                <div className="hidden xl:block max-w-xs text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-100 italic">
+                                                                                <div className="hidden xl:block max-w-xs text-xs text-gray-500 bg-gray-50 p-3 rounded-md border border-gray-100">
                                                                                     {item.note}
                                                                                 </div>
                                                                             )}
@@ -984,7 +973,7 @@
                 </div>
             );
         };
-
+        
         // --- 新增：實習委員會控管報表組件 ---
         const ControlReport = ({ data }) => {
             // 新增：學院篩選狀態
