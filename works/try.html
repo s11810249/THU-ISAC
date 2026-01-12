@@ -417,80 +417,84 @@
                         <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (由舊到新)</span>
                     </div>
 
-                    {/* 容器：設定足夠的 pb (padding-bottom) 以容納卡片，避免出現垂直捲軸 */}
-                    <div className="relative w-full overflow-x-auto pb-64 pt-8 px-4 scrollbar-thin">
-                         <div className="min-w-max flex items-center relative">
+                    {/* 容器：設定足夠的 pb 確保陰影不被切掉 */}
+                    <div className="relative w-full overflow-x-auto pb-12 pt-4 px-4 scrollbar-thin">
+                         <div className="min-w-max flex items-start">
                              
-                             {/* 背景貫穿線 - 絕對定位在圓點高度 */}
-                             {/* 計算方式：上方 Label 約 24px + 圓點中心 */}
-                             <div className="absolute left-0 right-0 top-[26px] h-[2px] bg-primary-200 z-0"></div>
-
                              {allNodes.map((node, i) => {
+                                 const isFirst = i === 0;
                                  const isLast = i === allNodes.length - 1;
                                  const isMissing = node.status === 'missing';
                                  
-                                 // 線條顏色邏輯 (覆蓋在背景灰線上)
-                                 // 若「當前點」或「下一點」缺漏，則用紅色線段覆蓋
-                                 let showRedLine = false;
-                                 if (!isLast) {
-                                     const nextNode = allNodes[i+1];
-                                     if (isMissing || nextNode.status === 'missing') {
-                                         showRedLine = true;
-                                     }
+                                 // 線條顏色判斷
+                                 // 左線：連接上一個節點 (i-1) 與自己 (i)
+                                 // 若 (i-1) 缺 或 (i) 缺 -> 紅線
+                                 let leftLineColor = 'bg-primary-200';
+                                 if (!isFirst) {
+                                     const prevNode = allNodes[i-1];
+                                     if (prevNode.status === 'missing' || isMissing) leftLineColor = 'bg-red-400';
                                  }
 
+                                 // 右線：連接自己 (i) 與下一個節點 (i+1)
+                                 // 若 (i) 缺 或 (i+1) 缺 -> 紅線
+                                 let rightLineColor = 'bg-primary-200';
+                                 if (!isLast) {
+                                     const nextNode = allNodes[i+1];
+                                     if (isMissing || nextNode.status === 'missing') rightLineColor = 'bg-red-400';
+                                 }
+
+                                 // 動態寬度：有卡片的節點給予足夠寬度 (300px)，否則給予標準寬度 (120px)
+                                 // 這確保卡片在文檔流中佔據空間，不會重疊
+                                 const nodeWidth = node.hasCard ? 'min-w-[300px]' : 'min-w-[120px]';
+
                                  return (
-                                     <React.Fragment key={node.id}>
-                                         <div className="relative flex flex-col items-center group min-w-[160px]"> {/* 固定寬度 160px */}
-                                             
-                                             {/* 1. 上方標籤 */}
-                                             <div className={`mb-3 text-sm font-bold whitespace-nowrap relative z-10 bg-white px-1 ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
+                                     <div key={node.id} className={`relative flex flex-col items-center group ${nodeWidth}`}>
+                                         
+                                         {/* 1. 上方標籤 (固定高度區塊，確保對齊) */}
+                                         <div className="h-10 flex items-end mb-2">
+                                            <span className={`text-sm font-bold whitespace-nowrap px-1 ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
                                                  {node.label}
-                                             </div>
-
-                                             {/* 2. 中間圓點 (點在線上) */}
-                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-20 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
-
-                                             {/* 3. 下方日期 */}
-                                             <div className={`mt-3 font-num text-xs font-bold ${isMissing ? 'text-red-500' : 'text-primary-600'}`}>
-                                                 {node.date ? toROC(node.date) : '無'}
-                                             </div>
-
-                                             {/* 4. 詳細卡片 */}
-                                             {node.hasCard && (
-                                                 <div className="absolute top-full mt-4 w-[280px] z-30 left-1/2 -translate-x-1/2">
-                                                     <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-lg hover:shadow-xl transition-all text-center relative">
-                                                         {/* 箭頭指向日期上方 */}
-                                                         <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-200"></div>
-                                                         
-                                                         <div className="mb-3">
-                                                             <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
-                                                                 {node.cardData.typeLabel}
-                                                             </span>
-                                                         </div>
-                                                         
-                                                         <div className="text-sm font-bold text-slate-700 leading-snug mb-3 break-words">
-                                                             {node.cardData.title}
-                                                         </div>
-
-                                                         {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
-                                                     </div>
-                                                 </div>
-                                             )}
+                                            </span>
                                          </div>
 
-                                         {/* 紅色連接線 (若需要) */}
-                                         {/* 位於節點右側，連接到下一個節點 */}
-                                         {!isLast && showRedLine && (
-                                             <div className="absolute h-[2px] bg-red-400 z-10" 
-                                                  style={{
-                                                      left: `calc(${160 * i}px + 50%)`, // 從當前節點中心開始
-                                                      width: '160px', // 長度等於一個節點寬度
-                                                      top: '26px' // 對齊圓點中心
-                                                  }}>
+                                         {/* 2. 中間圓點與線條 (Flex置中，確保點在線上) */}
+                                         <div className="w-full h-6 relative flex items-center justify-center">
+                                             {/* 左半線 */}
+                                             {!isFirst && <div className={`absolute left-0 w-1/2 h-[2px] ${leftLineColor}`}></div>}
+                                             {/* 右半線 */}
+                                             {!isLast && <div className={`absolute right-0 w-1/2 h-[2px] ${rightLineColor}`}></div>}
+                                             
+                                             {/* 圓點 */}
+                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
+                                         </div>
+
+                                         {/* 3. 下方日期 */}
+                                         <div className={`mt-2 font-num text-xs font-bold ${isMissing ? 'text-red-500' : 'text-primary-600'}`}>
+                                             {node.date ? toROC(node.date) : '無'}
+                                         </div>
+
+                                         {/* 4. 詳細卡片 (不再是 absolute，而是文檔流的一部分) */}
+                                         {node.hasCard && (
+                                             <div className="mt-4 w-[280px] px-2 animate-fade-in-up">
+                                                 <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all text-center relative group-hover:-translate-y-1 duration-200">
+                                                     {/* 箭頭 (指向日期) */}
+                                                     <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-200"></div>
+                                                     
+                                                     <div className="mb-3">
+                                                         <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
+                                                             {node.cardData.typeLabel}
+                                                         </span>
+                                                     </div>
+                                                     
+                                                     <div className="text-sm font-bold text-slate-700 leading-snug mb-3 break-words">
+                                                         {node.cardData.title}
+                                                     </div>
+
+                                                     {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
+                                                 </div>
                                              </div>
                                          )}
-                                     </React.Fragment>
+                                     </div>
                                  )
                              })}
                          </div>
@@ -498,7 +502,6 @@
                 </div>
             );
         };
-
             
         // 新增：獨立的歷程編輯區塊元件，處理收合與樣式
         const HistoryEditorRow = ({ h, index, updateHist, delHist }) => {
