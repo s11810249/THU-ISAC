@@ -126,7 +126,9 @@
 
         const PROCESS_TYPES = [
             { id: 'standard', label: '一般修法' },
+            { id: 'new_enactment', label: '新訂定' },
             { id: 'direct', label: '授權逕予修訂' }, 
+            { id: 'dept_name_change', label: '系所名稱變更' },
             { id: 'name_change', label: '法規名稱變更' },
             { id: 'format', label: '僅格式調整' }
         ];
@@ -340,10 +342,10 @@
         const Timeline = ({ history }) => {
             if (!history || history.length === 0) return null;
             
-            // 1. 排序：由舊到新
+            // 1. 排序：由舊到新 (包含 effectiveDate)
             const sortedHistory = [...history].sort((a, b) => {
-                const dateA = a.univDate || a.collegeDate || a.deptDate || '';
-                const dateB = b.univDate || b.collegeDate || b.deptDate || '';
+                const dateA = a.effectiveDate || a.univDate || a.collegeDate || a.deptDate || '';
+                const dateB = b.effectiveDate || b.univDate || b.collegeDate || b.deptDate || '';
                 if (!dateA && !dateB) return 0;
                 if (!dateA) return 1; 
                 if (!dateB) return -1;
@@ -353,10 +355,27 @@
             // 2. 將修法歷程攤平為節點列表
             const allNodes = [];
             sortedHistory.forEach(h => {
-                const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
+                const type = h.type || 'standard';
+                const isDirect = type === 'direct' || type === 'name_change' || type === 'format';
+                const isDeptNameChange = type === 'dept_name_change';
+                const isNewEnactment = type === 'new_enactment';
                 
                 let cardTitle = h.label;
-                if (isDirect && h.univDate) {
+
+                // 處理卡片標題
+                if (isDeptNameChange) {
+                     let dateStr = '______';
+                     if (h.effectiveDate) {
+                         const parts = h.effectiveDate.split('-');
+                         const y = parseInt(parts[0]) - 1911;
+                         const m = parseInt(parts[1]);
+                         const d = parseInt(parts[2]);
+                         dateStr = `${y} 年 ${m} 月 ${d} 日`;
+                     }
+                     cardTitle = `經${h.approvingUnit||'______'}核定自民國 ${dateStr} 起更名為${h.newDeptName||'______'}，本法規更名為${h.newRegulationName||'______'}`;
+                } else if (isNewEnactment) {
+                    cardTitle = h.regulationName || '新訂定法規';
+                } else if (isDirect && h.univDate) {
                      const parts = h.univDate.split('-');
                      const y = parseInt(parts[0]) - 1911;
                      const m = parseInt(parts[1]);
@@ -368,14 +387,23 @@
 
                 const cardData = {
                     id: h.id,
-                    typeLabel: PROCESS_TYPES.find(p=>p.id===(h.type||'standard'))?.label,
+                    typeLabel: PROCESS_TYPES.find(p=>p.id===type)?.label,
                     title: cardTitle,
                     note: h.note
                 };
 
                 const getStatus = (ver, date) => ver || (date ? 'verified' : 'missing');
 
-                if (isDirect) {
+                if (isDeptNameChange) {
+                     allNodes.push({
+                         id: `${h.id}_dept_change`,
+                         label: h.approvingUnit || '系所名稱變更',
+                         date: h.effectiveDate,
+                         status: getStatus(h.univVerification, h.effectiveDate), // 借用 univVerification
+                         hasCard: true,
+                         cardData: cardData
+                     });
+                } else if (isDirect) {
                      allNodes.push({
                          id: `${h.id}_direct`,
                          label: h.directUnit || '逕予修訂',
@@ -385,6 +413,7 @@
                          cardData: cardData
                      });
                 } else {
+                     // Standard & New Enactment
                      if (h.deptMeetingType !== 'none') {
                          let label = '系務會議';
                          if (h.deptMeetingType === 'internship') label = '系實習委員會';
@@ -473,16 +502,10 @@
                                  const nodeColorCode = COLOR_CODES[node.status] || COLOR_CODES.verified;
                                  const greyColorCode = COLOR_CODES.grey;
 
-                                 // 左線樣式
-                                 // 如果是第一個：左邊一半是灰色，右邊一半是節點色
-                                 // 如果不是第一個：整條都是節點色 (與前一個節點的右線在中間交會)
                                  const leftLineStyle = isFirst 
                                     ? { background: `linear-gradient(to right, ${greyColorCode} 50%, ${nodeColorCode} 50%)` }
                                     : { backgroundColor: nodeColorCode };
 
-                                 // 右線樣式
-                                 // 如果是最後一個：左邊一半是節點色，右邊一半是灰色
-                                 // 如果不是最後一個：整條都是節點色
                                  const rightLineStyle = isLast
                                     ? { background: `linear-gradient(to right, ${nodeColorCode} 50%, ${greyColorCode} 50%)` }
                                     : { backgroundColor: nodeColorCode };
@@ -547,6 +570,8 @@
         const HistoryEditorRow = ({ h, index, updateHist, delHist }) => {
             const [isCollapsed, setIsCollapsed] = useState(false);
             const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
+            const isDeptNameChange = h.type === 'dept_name_change';
+            const isNewEnactment = h.type === 'new_enactment';
             
             // 新增：用於自動調整高度的 ref
             const noteRef = useRef(null);
@@ -572,7 +597,7 @@
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-xs font-bold text-primary-800 flex items-center gap-2">
-                                    {h.label || '新修正歷程'}
+                                    {isNewEnactment ? (h.regulationName || '新訂定') : (h.label || '新修正歷程')}
                                     <span className="text-[10px] bg-white border border-primary-200 text-primary-500 px-2 py-0.5 rounded-full font-bold font-normal">
                                         {PROCESS_TYPES.find(pt => pt.id === (h.type || 'standard'))?.label}
                                     </span>
@@ -594,7 +619,7 @@
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-primary-400 uppercase">歷程名稱</label>
-                                    <input className="clean-input w-full text-sm font-bold text-primary-700 pb-1" value={h.label} onChange={e=>updateHist(index,'label',e.target.value)} placeholder="名稱"/>
+                                    <input className="clean-input w-full text-sm font-bold text-primary-700 pb-1" value={h.label} onChange={e=>updateHist(index,'label',e.target.value)} placeholder="名稱 (例: 112學年度修訂)"/>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold text-primary-400 uppercase">修法類型</label>
@@ -604,7 +629,41 @@
                                 </div>
                             </div>
 
-                            {isDirect ? (
+                            {/* 根據類型顯示不同欄位 */}
+                            
+                            {/* 1. 系所名稱變更 (5個特定欄位) */}
+                            {isDeptNameChange ? (
+                                <div className="grid grid-cols-1 gap-4 mb-4 bg-white p-4 rounded-lg border border-primary-100">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">變更前系所名稱</label>
+                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.oldDeptName || ''} onChange={e=>updateHist(index, 'oldDeptName', e.target.value)} placeholder="變更前名稱"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">變更後系所名稱</label>
+                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.newDeptName || ''} onChange={e=>updateHist(index, 'newDeptName', e.target.value)} placeholder="變更後名稱"/>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">核定單位名稱</label>
+                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.approvingUnit || ''} onChange={e=>updateHist(index, 'approvingUnit', e.target.value)} placeholder="例如：教育部、校長"/>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">生效日期</label>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1"><DateInput label="" dateValue={h.effectiveDate} onChange={v=>updateHist(index,'effectiveDate',v)} placeholder="日期"/></div>
+                                                <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="紀錄確認" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-primary-400 uppercase">變更後法規名稱</label>
+                                        <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.newRegulationName || ''} onChange={e=>updateHist(index, 'newRegulationName', e.target.value)} placeholder="新法規名稱"/>
+                                    </div>
+                                </div>
+                            ) : isDirect ? (
+                                // 2. 授權逕予修訂 (Original Direct UI)
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-white p-3 rounded-lg border border-primary-100">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-primary-400 uppercase">授權單位/依據</label>
@@ -625,43 +684,53 @@
                                     </div>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-white p-3 rounded-lg border border-primary-100">
-                                    <div className="space-y-1 relative">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">系級</label>
-                                            <select value={h.deptMeetingType||'affairs'} onChange={e=>updateHist(index,'deptMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
-                                                {DEPT_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
-                                            </select>
+                                // 3. 一般修法 & 新訂定 (Standard UI)
+                                <>
+                                    {isNewEnactment && (
+                                        <div className="mb-4 bg-white p-3 rounded-lg border border-primary-100 space-y-1">
+                                            <label className="text-[10px] font-bold text-primary-400 uppercase">法規名稱</label>
+                                            <input className="clean-input w-full text-sm text-primary-800 pb-1" value={h.regulationName || ''} onChange={e=>updateHist(index, 'regulationName', e.target.value)} placeholder="輸入新訂定的法規名稱"/>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1"><DateInput label="" dateValue={h.deptDate} onChange={v=>updateHist(index,'deptDate',v)} placeholder="日期"/></div>
-                                            <VerificationButton status={h.deptVerification} onUpdate={(v)=>updateHist(index, 'deptVerification', v)} label="系級紀錄確認" />
+                                    )}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-white p-3 rounded-lg border border-primary-100">
+                                        <div className="space-y-1 relative">
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">系級</label>
+                                                <select value={h.deptMeetingType||'affairs'} onChange={e=>updateHist(index,'deptMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
+                                                    {DEPT_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1"><DateInput label="" dateValue={h.deptDate} onChange={v=>updateHist(index,'deptDate',v)} placeholder="日期"/></div>
+                                                <VerificationButton status={h.deptVerification} onUpdate={(v)=>updateHist(index, 'deptVerification', v)} label="系級紀錄確認" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1 relative">
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">院級</label>
+                                                <select value={h.collegeMeetingType||'affairs'} onChange={e=>updateHist(index,'collegeMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
+                                                    {COLLEGE_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1"><DateInput label="" dateValue={h.collegeDate} onChange={v=>updateHist(index,'collegeDate',v)} placeholder="日期"/></div>
+                                                <VerificationButton status={h.collegeVerification} onUpdate={(v)=>updateHist(index, 'collegeVerification', v)} label="院級紀錄確認" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">校級</label>
+                                                <span className="text-[10px] text-primary-300 font-bold">實習委員會</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(index,'univDate',v)} placeholder="日期"/></div>
+                                                <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="校級紀錄確認" />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-1 relative">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">院級</label>
-                                            <select value={h.collegeMeetingType||'affairs'} onChange={e=>updateHist(index,'collegeMeetingType',e.target.value)} className="text-[10px] bg-transparent text-primary-500 font-bold outline-none cursor-pointer">
-                                                {COLLEGE_MEETING_TYPES.map(t=><option key={t.val} value={t.val}>{t.label}</option>)}
-                                            </select>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1"><DateInput label="" dateValue={h.collegeDate} onChange={v=>updateHist(index,'collegeDate',v)} placeholder="日期"/></div>
-                                            <VerificationButton status={h.collegeVerification} onUpdate={(v)=>updateHist(index, 'collegeVerification', v)} label="院級紀錄確認" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between items-end">
-                                            <label className="text-[10px] font-bold text-primary-400 uppercase block mb-0.5">校級</label>
-                                            <span className="text-[10px] text-primary-300 font-bold">實習委員會</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex-1"><DateInput label="" dateValue={h.univDate} onChange={v=>updateHist(index,'univDate',v)} placeholder="日期"/></div>
-                                            <VerificationButton status={h.univVerification} onUpdate={(v)=>updateHist(index, 'univVerification', v)} label="校級紀錄確認" />
-                                        </div>
-                                    </div>
-                                </div>
+                                </>
                             )}
+
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-primary-400 uppercase">備註說明</label>
                                 <textarea 
@@ -696,7 +765,15 @@
                 let max = '', label = '無紀錄', stage = 'none', type = 'standard';
                 (reg.history||[]).forEach(h => {
                     const hType = h.type || 'standard';
-                    if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
+                    
+                    if (hType === 'dept_name_change') {
+                         if(h.effectiveDate && h.effectiveDate >= max) {
+                             max = h.effectiveDate;
+                             label = `系所更名 (${h.label || h.approvingUnit})`;
+                             stage = 'univ'; // Treat as finalized
+                             type = hType;
+                         }
+                    } else if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
                         if(h.univDate && h.univDate>=max) { 
                             max=h.univDate; 
                             if(h.univDate){
@@ -711,6 +788,7 @@
                             stage='univ'; type=hType; 
                         }
                     } else {
+                         // Standard & New Enactment
                          if(h.univDate && h.univDate>=max) { max=h.univDate; label=`${toROC(h.univDate)} 校級 (${h.label})`; stage='univ'; type=hType; }
                          else if(h.collegeDate && h.collegeDate>=max) { max=h.collegeDate; label=`${toROC(h.collegeDate)} 院級 (${h.label})`; stage='college'; type=hType; }
                          else if(h.deptDate && h.deptDate>=max) { max=h.deptDate; label=`${toROC(h.deptDate)} 系級 (${h.label})`; stage='dept'; type=hType; }
@@ -723,7 +801,9 @@
                 const o = [{val:'', lbl:'未上傳'}];
                 (reg.history||[]).forEach(h => {
                     const hType = h.type || 'standard';
-                    if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
+                    if (hType === 'dept_name_change') {
+                        if(h.effectiveDate) o.push({val: h.effectiveDate, lbl: `${toROC(h.effectiveDate)} 系所更名 (${h.label})`});
+                    } else if (hType === 'direct' || hType === 'name_change' || hType === 'format') {
                         if(h.univDate) o.push({val: h.univDate, lbl: `${toROC(h.univDate)} ${h.directUnit || '逕予修訂'} (${h.label})`});
                     } else {
                         if(h.univDate) o.push({val: h.univDate, lbl: `${toROC(h.univDate)} 校級 (${h.label})`});
