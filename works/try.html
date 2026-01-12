@@ -320,78 +320,77 @@
             const sortedHistory = [...history].sort((a, b) => {
                 const dateA = a.univDate || a.collegeDate || a.deptDate || '';
                 const dateB = b.univDate || b.collegeDate || b.deptDate || '';
-                if (!dateA) return 1; if (!dateB) return -1;
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1; 
+                if (!dateB) return -1;
                 return dateA.localeCompare(dateB); 
             });
 
             // 2. 將修法歷程攤平為節點列表 (Nodes)
-            // 每個 Node 代表時間軸上的一個點 (系/院/校)
             const allNodes = [];
-            sortedHistory.forEach((h) => {
+            sortedHistory.forEach(h => {
                 const isDirect = h.type === 'direct' || h.type === 'name_change' || h.type === 'format';
                 
-                // 產生卡片內容 (只在該歷程的最後一個節點顯示)
+                // 準備卡片資料
                 let cardTitle = h.label;
                 if (isDirect && h.univDate) {
-                    const parts = h.univDate.split('-');
-                    const y = parseInt(parts[0]) - 1911;
-                    const m = parseInt(parts[1]);
-                    const d = parseInt(parts[2]);
-                    cardTitle = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
+                     const parts = h.univDate.split('-');
+                     const y = parseInt(parts[0]) - 1911;
+                     const m = parseInt(parts[1]);
+                     const d = parseInt(parts[2]);
+                     cardTitle = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
                 } else if (!cardTitle) {
-                    cardTitle = "修正案";
+                     cardTitle = "修正案";
                 }
 
                 const cardData = {
+                    id: h.id,
                     typeLabel: PROCESS_TYPES.find(p=>p.id===(h.type||'standard'))?.label,
                     title: cardTitle,
                     note: h.note
                 };
 
                 if (isDirect) {
-                    // 逕予修訂：只有一個節點
-                    allNodes.push({
-                        id: h.id + '_direct',
-                        label: h.directUnit || '逕予修訂',
-                        date: h.univDate,
-                        status: h.univDate ? 'ok' : 'missing',
-                        isAnchor: true, // 掛載卡片
-                        card: cardData
-                    });
+                     allNodes.push({
+                         id: `${h.id}_direct`,
+                         label: h.directUnit || '逕予修訂',
+                         date: h.univDate,
+                         status: h.univDate ? 'ok' : 'missing',
+                         hasCard: true,
+                         cardData: cardData
+                     });
                 } else {
-                    // 一般修法：系 -> 院 -> 校
-                    // 系級 (若有)
-                    if (h.deptMeetingType !== 'none') {
-                        let deptLabel = '系務會議';
-                        if (h.deptMeetingType === 'internship') deptLabel = '系實習委員會';
-                        else if (h.deptMeetingType === 'preparatory') deptLabel = '系籌備會議';
-                        
-                        allNodes.push({
-                            id: h.id + '_dept',
-                            label: deptLabel,
-                            date: h.deptDate,
-                            status: h.deptDate ? 'ok' : 'missing',
-                            isAnchor: false
-                        });
-                    }
-                    // 院級
-                    let collegeLabel = h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議';
-                    allNodes.push({
-                        id: h.id + '_college',
-                        label: collegeLabel,
-                        date: h.collegeDate,
-                        status: h.collegeDate ? 'ok' : 'missing',
-                        isAnchor: false
-                    });
-                    // 校級 (掛載卡片)
-                    allNodes.push({
-                        id: h.id + '_univ',
-                        label: '校級會議',
-                        date: h.univDate,
-                        status: h.univDate ? 'ok' : 'missing',
-                        isAnchor: true,
-                        card: cardData
-                    });
+                     // 一般修法：系 -> 院 -> 校
+                     if (h.deptMeetingType !== 'none') {
+                         let label = '系務會議';
+                         if (h.deptMeetingType === 'internship') label = '系實習委員會';
+                         else if (h.deptMeetingType === 'preparatory') label = '系籌備會議';
+                         allNodes.push({
+                             id: `${h.id}_dept`,
+                             label: label,
+                             date: h.deptDate,
+                             status: h.deptDate ? 'ok' : 'missing',
+                             hasCard: false
+                         });
+                     }
+                     
+                     let collegeLabel = h.collegeMeetingType === 'internship' ? '院實習委員會' : '院務會議';
+                     allNodes.push({
+                         id: `${h.id}_college`,
+                         label: collegeLabel,
+                         date: h.collegeDate,
+                         status: h.collegeDate ? 'ok' : 'missing',
+                         hasCard: false
+                     });
+
+                     allNodes.push({
+                         id: `${h.id}_univ`,
+                         label: '校級會議',
+                         date: h.univDate,
+                         status: h.univDate ? 'ok' : 'missing',
+                         hasCard: true,
+                         cardData: cardData
+                     });
                 }
             });
 
@@ -411,84 +410,86 @@
 
             return (
                 <div className="border-t border-primary-100 mt-6 pt-6">
-                    <div className="flex items-center gap-2 mb-4">
+                     <div className="flex items-center gap-2 mb-4">
                         <div className="bg-primary-100 p-1.5 rounded-lg text-primary-600">
                             <Icons.History className="text-sm" />
                         </div>
                         <span className="text-sm font-bold text-primary-700">修法歷程時間軸 (由舊到新)</span>
                     </div>
-                    
+
                     {/* 橫向捲動容器 */}
-                    <div className="relative w-full overflow-x-auto pb-6 scrollbar-thin">
-                        <div className="min-w-max flex items-start pt-8 px-4 pb-32"> {/* pb-32 預留下方卡片空間 */}
-                            
-                            {allNodes.map((node, idx) => {
-                                const isRed = node.status === 'missing';
-                                const hasNext = idx < allNodes.length - 1;
-                                
-                                // 線條顏色邏輯：若當前節點或下一個節點異常，線條變紅
-                                let lineColor = "bg-primary-200";
-                                if (hasNext) {
-                                    const nextNode = allNodes[idx + 1];
-                                    if (isRed || nextNode.status === 'missing') {
-                                        lineColor = "bg-red-400";
-                                    }
-                                }
+                    <div className="relative w-full overflow-x-auto pb-12 pt-12 px-4 scrollbar-thin">
+                         <div className="min-w-max flex items-start">
+                             {allNodes.map((node, i) => {
+                                 const isLast = i === allNodes.length - 1;
+                                 const isMissing = node.status === 'missing';
+                                 
+                                 // 線條邏輯：若「當前點」或「下一點」為 missing，則中間連接線變紅
+                                 let lineClass = "bg-primary-200";
+                                 if (!isLast) {
+                                     const nextNode = allNodes[i+1];
+                                     if (isMissing || nextNode.status === 'missing') {
+                                         lineClass = "bg-red-400";
+                                     }
+                                 }
 
-                                return (
-                                    <React.Fragment key={node.id}>
-                                        {/* 節點本體 */}
-                                        <div className="relative flex flex-col items-center group min-w-[100px]">
-                                            
-                                            {/* 1. 上方標籤 (不簡寫，字體大) */}
-                                            <div className={`mb-3 text-xs font-bold whitespace-nowrap ${isRed ? 'text-red-500' : 'text-primary-700'}`}>
-                                                {node.label}
-                                            </div>
+                                 return (
+                                     <React.Fragment key={node.id}>
+                                         <div className="relative flex flex-col items-center group min-w-[120px]">
+                                             
+                                             {/* 1. 上方標籤 (不簡寫，字體大，絕對定位) */}
+                                             <div className={`absolute bottom-full mb-3 text-sm font-bold whitespace-nowrap ${isMissing ? 'text-red-500' : 'text-primary-700'}`}>
+                                                 {node.label}
+                                             </div>
 
-                                            {/* 2. 圓點 */}
-                                            <div className={`w-4 h-4 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${isRed ? 'bg-red-500' : 'bg-primary-500'}`}>
-                                            </div>
+                                             {/* 2. 中間圓點 (恢復舊版尺寸 w-5 h-5) */}
+                                             <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm relative z-10 transition-colors ${isMissing ? 'bg-red-500' : 'bg-primary-500'}`}></div>
 
-                                            {/* 3. 下方日期 */}
-                                            <div className={`mt-2 font-num text-xs font-bold ${isRed ? 'text-red-500' : 'text-primary-600'}`}>
-                                                {node.date ? toROC(node.date) : '無'}
-                                            </div>
+                                             {/* 3. 下方日期 */}
+                                             <div className={`mt-3 font-num text-xs font-bold ${isMissing ? 'text-red-500' : 'text-primary-600'}`}>
+                                                 {node.date ? toROC(node.date) : '無'}
+                                             </div>
 
-                                            {/* 4. 卡片 (只在 Anchor 節點顯示) */}
-                                            {node.isAnchor && node.card && (
-                                                <div className="absolute top-full mt-4 w-72 z-20">
-                                                    <div className="bg-white border border-primary-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-all text-center relative group-hover:-translate-y-1 duration-200">
-                                                        {/* 上方箭頭 (指向圓點/日期) */}
-                                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-100"></div>
-                                                        
-                                                        <div className="mb-2">
-                                                            <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
-                                                                {node.card.typeLabel}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-sm font-bold text-slate-700 leading-snug mb-1">
-                                                            {node.card.title}
-                                                        </div>
-                                                        
-                                                        {node.card.note && <CollapsibleNote note={node.card.note} />}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                             {/* 4. 詳細卡片 (僅在 hasCard 節點顯示，箭頭對齊圓點) */}
+                                             {node.hasCard && (
+                                                 <div className="absolute top-full mt-8 w-72 z-20">
+                                                     <div className="bg-white border border-primary-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all text-center relative group-hover:-translate-y-1 duration-200">
+                                                         {/* 箭頭指向圓點 */}
+                                                         <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-l border-t border-primary-200"></div>
+                                                         
+                                                         {/* 修法類型 */}
+                                                         <div className="mb-3">
+                                                             <span className="bg-primary-50 text-primary-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-primary-100">
+                                                                 {node.cardData.typeLabel}
+                                                             </span>
+                                                         </div>
+                                                         
+                                                         {/* 標題 */}
+                                                         <div className="text-sm font-bold text-slate-700 leading-snug mb-3">
+                                                             {node.cardData.title}
+                                                         </div>
 
-                                        {/* 連接線 */}
-                                        {hasNext && (
-                                            <div className={`w-12 h-[2px] mt-[27px] -mx-2 ${lineColor}`}></div> // mt-[27px] 調整線條高度對齊圓點中心 (label mb-3 + text height + dot center)
-                                        )}
-                                    </React.Fragment>
-                                );
-                            })}
-                        </div>
+                                                         {/* 備註 */}
+                                                         {node.cardData.note && <CollapsibleNote note={node.cardData.note} />}
+                                                     </div>
+                                                 </div>
+                                             )}
+                                         </div>
+
+                                         {/* 連接線 (位於圓點中心高度) */}
+                                         {!isLast && (
+                                             <div className={`flex-1 h-[2px] mt-[9px] -mx-4 z-0 ${lineClass}`} style={{minWidth: '50px'}}></div>
+                                         )}
+                                     </React.Fragment>
+                                 )
+                             })}
+                         </div>
                     </div>
                 </div>
             );
         };
 
+            
         // 新增：獨立的歷程編輯區塊元件，處理收合與樣式
         const HistoryEditorRow = ({ h, index, updateHist, delHist }) => {
             const [isCollapsed, setIsCollapsed] = useState(false); // 預設展開以便編輯，可改為 true 預設收合
