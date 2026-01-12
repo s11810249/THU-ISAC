@@ -344,7 +344,7 @@
                                     const y = parseInt(parts[0]) - 1911;
                                     const m = parseInt(parts[1]);
                                     const d = parseInt(parts[2]);
-                                    displayLabel = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'} 辦理，${h.directUnit || '______'}`;
+                                    displayLabel = `依 ${y} 年 ${m} 月 ${d} 日 ${h.issueNumber||'______'}函辦理，${h.directUnit || '______'}`;
                                  }
 
                                  return (
@@ -422,7 +422,7 @@
                                 const y = parseInt(parts[0]) - 1911;
                                 const m = parseInt(parts[1]);
                                 const d = parseInt(parts[2]);
-                                label=`依${y}年${m}月${d}日${h.issueNumber||'__'}辦理`;
+                                label=`依${y}年${m}月${d}日${h.issueNumber||'__'}函辦理`;
                             } else {
                                 label = `${h.label} (未發文)`;
                             }
