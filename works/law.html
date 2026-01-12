@@ -867,14 +867,22 @@
 
         // --- 新增：實習委員會控管報表組件 ---
         const ControlReport = ({ data }) => {
+            // 新增：學院篩選狀態
+            const [selectedCollege, setSelectedCollege] = useState('all');
+
+            // 取得學院清單供篩選使用
+            const collegeOptions = useMemo(() => data.map(c => ({id: c.id, name: c.name})), [data]);
+
             const reportData = useMemo(() => {
                 const list = [];
                 data.forEach(col => {
+                    // 篩選邏輯：如果選擇特定學院且不符合，則跳過
+                    if (selectedCollege !== 'all' && col.id !== selectedCollege) return;
+
                     col.departments.forEach(dept => {
-                        // 1. 只抓取 committeeRules (實習委員會要點)，不抓 internshipRules
                         (dept.committeeRules || []).forEach(r => {
                             
-                            // 計算「最新進度」顯示文字 (包含逕予修訂，顯示發生什麼事)
+                            // 1. 計算最新進度
                             let maxDate = ''; 
                             let progressLabel = '無紀錄';
                             
@@ -891,7 +899,6 @@
                                 
                                 if (effectiveDate && effectiveDate >= maxDate) {
                                     maxDate = effectiveDate;
-                                    
                                     if (['direct', 'name_change', 'format'].includes(hType)) {
                                         if (h.univDate) {
                                             const parts = h.univDate.split('-');
@@ -916,10 +923,7 @@
                                 const hType = h.type || 'standard';
                                 const isDirect = ['direct', 'name_change', 'format'].includes(hType);
 
-                                // 計算校級：排除「授權逕予修訂」類型的日期
                                 if(h.univDate && h.univDate > maxUniv && !isDirect) maxUniv = h.univDate;
-                                
-                                // 計算院級、系級
                                 if(h.collegeDate && h.collegeDate > maxCollege) maxCollege = h.collegeDate;
                                 if(h.deptDate && h.deptDate > maxDept) maxDept = h.deptDate;
                             });
@@ -942,7 +946,7 @@
                     });
                 });
                 return list;
-            }, [data]);
+            }, [data, selectedCollege]); // 依賴 selectedCollege 變更重新計算
 
             const getStatusBadge = (s) => {
                 if(s==='pass') return <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold flex justify-center items-center gap-1"><Icons.Check className="text-[10px]"/> 通過</span>;
@@ -954,12 +958,28 @@
                 <div className="max-w-[1920px] mx-auto animate-fade-in p-8 pb-20">
                     <div className="bg-white rounded-2xl shadow-soft border border-primary-200 overflow-hidden">
                         <div className="px-8 py-6 border-b border-primary-100 flex justify-between items-center bg-primary-50">
-                            <h2 className="font-bold text-lg text-primary-800 flex items-center gap-2">
-                                <Icons.Table className="text-primary-600"/> 實習委員會要點控管報表
-                            </h2>
+                            <div className="flex items-center gap-6">
+                                <h2 className="font-bold text-lg text-primary-800 flex items-center gap-2">
+                                    <Icons.Table className="text-primary-600"/> 實習委員會要點控管報表
+                                </h2>
+                                {/* 新增：學院篩選下拉選單 */}
+                                <div className="flex items-center gap-2">
+                                    <label className="text-xs font-bold text-primary-500 uppercase">篩選學院:</label>
+                                    <select 
+                                        value={selectedCollege} 
+                                        onChange={(e) => setSelectedCollege(e.target.value)}
+                                        className="bg-white border border-primary-200 text-primary-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-1.5 font-bold outline-none"
+                                    >
+                                        <option value="all">顯示全部學院</option>
+                                        {collegeOptions.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                             <div className="flex gap-4">
                                 <span className="text-sm font-bold text-primary-500 bg-white px-3 py-1 rounded-full shadow-sm border border-primary-100">
-                                    共 {reportData.length} 筆
+                                    共 {reportData.length} 筆要點
                                 </span>
                             </div>
                         </div>
@@ -971,14 +991,14 @@
                                         <th className="px-6 py-4 min-w-[200px]">法規名稱</th>
                                         <th className="px-6 py-4 min-w-[180px]">最新進度</th>
                                         
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近系級</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近院級</th>
+                                        <th className="px-4 py-4 whitespace-nowrap text-center text-blue-600 bg-blue-50/10">最近校級通過</th>
+
+                                        {/* 修改：雲端與系統移動到校級後面 */}
                                         <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">系所雲端</th>
                                         <th className="px-4 py-4 whitespace-nowrap text-center text-gray-600 bg-gray-100/50">法規系統</th>
                                         
-                                        {/* 補回系級與院級 */}
-                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近系級</th>
-                                        <th className="px-4 py-4 whitespace-nowrap text-center text-primary-400">最近院級</th>
-                                        
-                                        <th className="px-4 py-4 whitespace-nowrap text-center text-blue-600">最近校級通過</th>
                                         <th className="px-6 py-4 whitespace-nowrap text-center">查核結果</th>
                                         <th className="px-6 py-4 min-w-[200px]">整體備註</th>
                                     </tr>
@@ -993,7 +1013,17 @@
                                             <td className="px-6 py-4 font-bold text-primary-800">{row.ruleName}</td>
                                             <td className="px-6 py-4 text-primary-600 text-xs font-bold">{row.progress}</td>
                                             
-                                            {/* 雲端與系統版本 */}
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">
+                                                {toROC(row.maxDept) || <span className="text-gray-300">-</span>}
+                                            </td>
+                                            <td className="px-4 py-4 text-center font-num text-gray-500">
+                                                {toROC(row.maxCollege) || <span className="text-gray-300">-</span>}
+                                            </td>
+                                            <td className="px-4 py-4 text-center font-num text-blue-600 font-bold bg-blue-50/20">
+                                                {toROC(row.maxUniv) || <span className="text-gray-300">-</span>}
+                                            </td>
+
+                                            {/* 修改：雲端與系統資料欄位 */}
                                             <td className="px-4 py-4 text-center font-num text-slate-600 bg-slate-50/30">
                                                 {toROC(row.cloudVersion) || <span className="text-gray-300">-</span>}
                                             </td>
@@ -1001,21 +1031,17 @@
                                                 {toROC(row.systemVersion) || <span className="text-gray-300">-</span>}
                                             </td>
 
-                                            {/* 補回顯示系級與院級日期 */}
-                                            <td className="px-4 py-4 text-center font-num text-gray-500">
-                                                {toROC(row.maxDept) || <span className="text-gray-300">-</span>}
-                                            </td>
-                                            <td className="px-4 py-4 text-center font-num text-gray-500">
-                                                {toROC(row.maxCollege) || <span className="text-gray-300">-</span>}
-                                            </td>
-
-                                            <td className="px-4 py-4 text-center font-num text-blue-600 font-bold bg-blue-50/20">
-                                                {toROC(row.maxUniv) || <span className="text-gray-300">-</span>}
-                                            </td>
                                             <td className="px-6 py-4 text-center">{getStatusBadge(row.checkStatus)}</td>
                                             <td className="px-6 py-4 text-gray-500 text-xs whitespace-pre-wrap">{row.note}</td>
                                         </tr>
                                     ))}
+                                    {reportData.length === 0 && (
+                                        <tr>
+                                            <td colSpan="10" className="px-6 py-8 text-center text-gray-400 italic">
+                                                無符合篩選條件的資料
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
