@@ -1,400 +1,291 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Download, Trash2, Loader2, FileStack, AlertCircle, ArrowDownAZ } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TXT 合併轉 PDF 工具</title>
+    <!-- 使用 Tailwind CSS 進行快速樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
 
-const App = () => {
-  const [files, setFiles] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [fontLoaded, setFontLoaded] = useState(false);
-  const [fontLoadingError, setFontLoadingError] = useState(false);
-  const [jspdfLoaded, setJspdfLoaded] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
-
-  // 初始化：載入 jsPDF 並下載中文字型
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-    script.async = true;
-    script.onload = () => {
-      setJspdfLoaded(true);
-      loadChineseFont();
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  // 載入 Noto Sans TC 字型 (改用 TTF 格式以確保 jsPDF 相容性)
-  const loadChineseFont = async () => {
-    if (window.chineseFontData) {
-      setFontLoaded(true);
-      return;
-    }
-
-    // 定義字型來源清單 (主要來源 + 備援來源)
-    const fontUrls = [
-      // 來源 1: jsDelivr GitHub Proxy (通常最穩定)
-      'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC-Regular.ttf',
-      // 來源 2: Google GitHub Raw (備用)
-      'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC-Regular.ttf'
-    ];
-
-    for (const fontUrl of fontUrls) {
-      try {
-        setLoadingProgress(0); // 重置進度
-        const response = await fetch(fontUrl);
-        
-        if (!response.ok) {
-          console.warn(`字型來源 ${fontUrl} 回應錯誤: ${response.status}`);
-          continue; // 嘗試下一個來源
-        }
-        
-        // 處理下載進度
-        const contentLength = response.headers.get('content-length');
-        const total = parseInt(contentLength, 10);
-        let loaded = 0;
-
-        const reader = response.body.getReader();
-        const chunks = [];
-
-        while(true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          loaded += value.length;
-          // 有些伺服器可能不回傳 content-length，避免 NaN
-          if (total) {
-            setLoadingProgress(Math.round((loaded / total) * 100));
-          } else {
-             // 假進度，讓使用者知道還在跑
-             setLoadingProgress(prev => Math.min(prev + 10, 90));
-          }
+        body {
+            font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
         }
 
-        // 合併 chunks
-        const blob = new Blob(chunks);
-        const buffer = await blob.arrayBuffer();
-
-        // 優化的 Buffer 轉 Base64 方法，避免記憶體溢出
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        const len = bytes.byteLength;
-        // 分塊處理字串轉換以避免堆疊溢出
-        for (let i = 0; i < len; i += 1024) {
-          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 1024));
-        }
-          
-        window.chineseFontData = btoa(binary);
-        setFontLoaded(true);
-        setLoadingProgress(100);
-        setFontLoadingError(false);
-        return; // 成功載入，結束函式
-        
-      } catch (error) {
-        console.warn(`嘗試載入字型失敗 (${fontUrl}):`, error);
-        // 繼續迴圈嘗試下一個連結
-      }
-    }
-
-    // 如果迴圈跑完都沒成功
-    setFontLoadingError(true);
-  };
-
-  const handleFileUpload = (event) => {
-    const uploadedFiles = Array.from(event.target.files);
-    
-    const newFiles = uploadedFiles
-      .filter(file => file.type === 'text/plain')
-      .map(file => ({
-        id: Math.random().toString(36).substr(2, 9),
-        fileObject: file,
-        name: file.name,
-        size: (file.size / 1024).toFixed(2) + ' KB',
-        content: null
-      }));
-
-    newFiles.forEach(fileItem => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFiles(prev => prev.map(f => 
-          f.id === fileItem.id ? { ...f, content: e.target.result } : f
-        ));
-      };
-      reader.readAsText(fileItem.fileObject);
-    });
-
-    setFiles(prev => [...prev, ...newFiles]);
-  };
-
-  const sortFilesByName = () => {
-    setFiles(prev => {
-      return [...prev].sort((a, b) => {
-        return a.name.localeCompare(b.name, 'zh-Hant', { numeric: true });
-      });
-    });
-  };
-
-  const moveFile = (index, direction) => {
-    const newFiles = [...files];
-    if (direction === 'up' && index > 0) {
-      [newFiles[index], newFiles[index - 1]] = [newFiles[index - 1], newFiles[index]];
-    } else if (direction === 'down' && index < newFiles.length - 1) {
-      [newFiles[index], newFiles[index + 1]] = [newFiles[index + 1], newFiles[index]];
-    }
-    setFiles(newFiles);
-  };
-
-  const removeFile = (id) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
-  };
-
-  const generateMergedPDF = async () => {
-    if (!window.jspdf || !window.chineseFontData) {
-      alert("系統正在準備字型與核心，請稍候再試...");
-      return;
-    }
-
-    setIsProcessing(true);
-    
-    // 給 UI 一點時間更新
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      const fileName = "NotoSansTC-Regular.ttf";
-      
-      // 確保字型已加入 VFS
-      if (!doc.existsFileInVFS(fileName)) {
-        doc.addFileToVFS(fileName, window.chineseFontData);
-        doc.addFont(fileName, "NotoSansTC", "normal");
-      }
-      
-      doc.setFont("NotoSansTC");
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      const lineHeight = 7;
-      const maxLineWidth = pageWidth - (margin * 2);
-      let cursorY = margin;
-
-      // 遍歷檔案
-      for (let index = 0; index < files.length; index++) {
-        const file = files[index];
-        
-        if (index > 0) {
-          doc.addPage();
-          cursorY = margin;
+        /* 隱藏列印區域在螢幕上 */
+        #print-area {
+            display: none;
         }
 
-        // 檔名標題
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        // 檢查標題空間
-        if (cursorY + 15 > pageHeight - margin) {
-          doc.addPage();
-          cursorY = margin;
-        }
-        
-        // 處理標題過長
-        const titleLines = doc.splitTextToSize(file.name, maxLineWidth);
-        titleLines.forEach(line => {
-             doc.text(line, margin, cursorY);
-             cursorY += 8;
-        });
+        /* 列印時的樣式設定 */
+        @media print {
+            /* 隱藏所有 UI 元素 */
+            .no-print {
+                display: none !important;
+            }
 
-        // 分隔線
-        doc.setLineWidth(0.5);
-        doc.line(margin, cursorY - 2, pageWidth - margin, cursorY - 2);
-        cursorY += 5;
+            /* 顯示列印區域 */
+            #print-area {
+                display: block !important;
+                background-color: white;
+                color: black;
+                padding: 0;
+                margin: 0;
+            }
 
-        // 內文
-        doc.setFontSize(11);
-        doc.setTextColor(50, 50, 50);
-        
-        // 這裡會用到字型的 cmap，如果字型錯誤，splitTextToSize 會報錯
-        const content = file.content || "";
-        // 移除部分不可見控制字元，避免 PDF 錯誤
-        const safeContent = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-        
-        const splitText = doc.splitTextToSize(safeContent, maxLineWidth);
+            /* 設定頁面邊距 */
+            @page {
+                size: A4;
+                margin: 20mm;
+            }
 
-        splitText.forEach(line => {
-          if (cursorY + lineHeight > pageHeight - margin) {
-            doc.addPage();
-            cursorY = margin;
-          }
-          doc.text(line, margin, cursorY);
-          cursorY += lineHeight;
-        });
-      }
+            /* 每個檔案內容的樣式 */
+            .file-section {
+                page-break-before: always; /* 每個檔案強制換頁 */
+                white-space: pre-wrap;     /* 保留原本的換行與空白 */
+                font-size: 12pt;
+                line-height: 1.6;
+                text-align: justify;
+                font-family: 'Times New Roman', 'Noto Sans TC', serif; /* 列印使用易讀字體 */
+            }
 
-      doc.save(`合併文件_${new Date().toISOString().slice(0,10)}.pdf`);
-      
-    } catch (err) {
-      console.error(err);
-      alert(`生成失敗: ${err.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+            /* 第一個檔案不需要換頁 */
+            .file-section:first-child {
+                page-break-before: auto;
+            }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-          
-          <div className="bg-slate-800 p-6 text-white">
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileStack className="w-8 h-8" />
-              純文字 PDF 合併工具
-            </h1>
-            <p className="mt-2 text-gray-300 text-sm">
-              支援繁體中文 • 自動排序 • 合併匯出 • 向量文字格式
-            </p>
-          </div>
-
-          <div className="p-6 space-y-6">
+            /* 標題樣式 */
+            .file-title {
+                font-size: 16pt;
+                font-weight: bold;
+                border-bottom: 2px solid #000;
+                padding-bottom: 5px;
+                margin-bottom: 15px;
+            }
             
-            {!fontLoaded && !fontLoadingError && (
-              <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="font-medium">正在下載並處理中文字型 (約 6MB)... {loadingProgress > 0 && `${loadingProgress}%`}</p>
-                  <p className="text-xs text-blue-600 mt-1">首次使用需下載字型檔，以確保 PDF 中文顯示正常且可搜尋。</p>
-                </div>
-              </div>
-            )}
+            .page-number {
+                display: none; /* 瀏覽器通常會自己加頁碼 */
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
 
-            {fontLoadingError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span>字型載入失敗，請檢查網路連線後重新整理頁面。</span>
-              </div>
-            )}
+    <!-- UI 介面區域 (列印時會隱藏) -->
+    <div class="no-print max-w-4xl mx-auto p-4 md:p-8">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
             
-            <div className="relative group">
-              <input
-                type="file"
-                multiple
-                accept=".txt"
-                onChange={handleFileUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                disabled={isProcessing}
-              />
-              <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 
-                ${isProcessing ? 'bg-gray-100 border-gray-300' : 'border-slate-300 bg-slate-50 group-hover:bg-slate-100 group-hover:border-slate-400'}`}>
-                <Upload className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-slate-700">點擊或拖曳上傳 .txt 檔案</h3>
-                <p className="text-slate-500 text-sm mt-1">上傳後將依列表順序合併為一個 PDF</p>
-              </div>
+            <!-- 標題列 -->
+            <div class="bg-slate-800 p-6 text-white">
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    <i data-lucide="file-stack" class="w-8 h-8"></i>
+                    TXT 合併轉 PDF 工具 (單檔版)
+                </h1>
+                <p class="mt-2 text-slate-300 text-sm">
+                    上傳多個文字檔 -> 自動排序 -> 透過列印轉存為 PDF
+                </p>
             </div>
 
-            {files.length > 0 && (
-              <div className="flex flex-col md:flex-row justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200 gap-4">
-                <span className="font-medium text-gray-600 hidden md:inline">
-                  待合併：{files.length} 個
-                </span>
+            <div class="p-6 space-y-6">
                 
-                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                  <button
-                    onClick={sortFilesByName}
-                    disabled={isProcessing}
-                    className="flex-shrink-0 px-4 py-2 text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                  >
-                    <ArrowDownAZ className="w-4 h-4" />
-                    依名稱排序
-                  </button>
-
-                  <button
-                    onClick={() => setFiles([])}
-                    disabled={isProcessing}
-                    className="flex-shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    清空
-                  </button>
-                  
-                  <button
-                    onClick={generateMergedPDF}
-                    disabled={isProcessing || !fontLoaded}
-                    className={`flex-shrink-0 px-6 py-2 rounded-lg shadow-sm text-white font-medium flex items-center gap-2 transition-all ml-auto md:ml-0
-                      ${isProcessing || !fontLoaded
-                        ? 'bg-slate-400 cursor-not-allowed' 
-                        : 'bg-slate-800 hover:bg-slate-900'}`}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        生成中
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-4 h-4" />
-                        合併匯出
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {files.map((file, index) => (
-                <div key={file.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:border-slate-300 transition-colors">
-                  <div className="flex items-center gap-3 flex-1 overflow-hidden">
-                    <span className="text-gray-400 font-mono text-sm w-6 text-center">{index + 1}.</span>
-                    <div className="min-w-0">
-                      <h4 className="font-medium text-gray-800 truncate text-sm">{file.name}</h4>
-                      <p className="text-xs text-gray-500">{file.size}</p>
+                <!-- 上傳區 -->
+                <div class="relative group cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" multiple accept=".txt" class="hidden" onchange="handleFiles(this.files)">
+                    <div class="border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-slate-400 rounded-lg p-8 text-center transition-all duration-200">
+                        <i data-lucide="upload" class="w-12 h-12 text-slate-500 mx-auto mb-3"></i>
+                        <h3 class="text-lg font-semibold text-slate-700">點擊此處上傳 .txt 檔案</h3>
+                        <p class="text-slate-500 text-sm mt-1">支援多檔案選取</p>
                     </div>
-                  </div>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-0.5 mr-2">
-                      <button 
-                        onClick={() => moveFile(index, 'up')}
-                        disabled={index === 0}
-                        className="text-gray-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-gray-300"
-                      >
-                        ▲
-                      </button>
-                      <button 
-                         onClick={() => moveFile(index, 'down')}
-                         disabled={index === files.length - 1}
-                         className="text-gray-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-gray-300"
-                      >
-                        ▼
-                      </button>
+                <!-- 操作按鈕區 -->
+                <div id="action-bar" class="hidden flex flex-col md:flex-row justify-between items-center bg-slate-50 p-4 rounded-lg border border-slate-200 gap-4">
+                    <span class="font-medium text-slate-600">
+                        已選擇：<span id="file-count">0</span> 個檔案
+                    </span>
+                    
+                    <div class="flex gap-2 flex-wrap justify-center">
+                        <button onclick="sortFiles()" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg flex items-center gap-2 transition-colors">
+                            <i data-lucide="arrow-down-a-z" class="w-4 h-4"></i> 依名稱排序
+                        </button>
+                        <button onclick="clearFiles()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i> 清空
+                        </button>
+                        <button onclick="window.print()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg flex items-center gap-2 transition-colors">
+                            <i data-lucide="printer" class="w-4 h-4"></i> 匯出 PDF
+                        </button>
                     </div>
+                </div>
 
-                    <button
-                      onClick={() => removeFile(file.id)}
-                      className="text-gray-300 hover:text-red-500 transition-colors p-2 rounded hover:bg-gray-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                <!-- 檔案列表 -->
+                <div id="file-list" class="space-y-2">
+                    <!-- 檔案會動態產生在這裡 -->
+                    <div class="text-center py-8 text-slate-400 border border-dashed border-slate-200 rounded-lg" id="empty-msg">
+                        尚未加入檔案
+                    </div>
                 </div>
-              ))}
-              
-              {files.length === 0 && (
-                <div className="text-center py-8 text-gray-400 border border-dashed border-gray-200 rounded-lg">
-                  <p>尚未加入檔案</p>
+
+                <!-- 教學提示 -->
+                <div class="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 flex items-start gap-2 border border-blue-100">
+                    <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        <p class="font-bold">如何儲存為 PDF？</p>
+                        <ul class="list-disc pl-4 mt-1 space-y-1">
+                            <li>點擊上方藍色的 <strong>「匯出 PDF」</strong> 按鈕。</li>
+                            <li>在列印視窗的「目的地」或是「印表機」選單中，選擇 <strong>「另存為 PDF」</strong>。</li>
+                            <li>按下儲存即可。</li>
+                        </ul>
+                    </div>
                 </div>
-              )}
+
             </div>
-
-          </div>
         </div>
-      </div>
     </div>
-  );
-};
 
-export default App;
+    <!-- 實際列印區域 (平常隱藏，列印時顯示) -->
+    <div id="print-area">
+        <!-- 內容會由 JavaScript 動態填入 -->
+    </div>
 
+    <script>
+        // 初始化 Icon
+        lucide.createIcons();
+
+        let filesData = [];
+
+        // 處理檔案上傳
+        async function handleFiles(files) {
+            const newFiles = Array.from(files).filter(f => f.type === 'text/plain');
+            
+            if (newFiles.length === 0) {
+                alert("請選擇 .txt 文字檔");
+                return;
+            }
+
+            // 讀取檔案內容
+            for (let file of newFiles) {
+                const text = await readFileAsText(file);
+                filesData.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    name: file.name,
+                    size: formatSize(file.size),
+                    content: text
+                });
+            }
+
+            renderUI();
+        }
+
+        // Promise 包裝 FileReader
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsText(file);
+            });
+        }
+
+        // 格式化檔案大小
+        function formatSize(bytes) {
+            return (bytes / 1024).toFixed(2) + ' KB';
+        }
+
+        // 排序檔案 (自然排序)
+        function sortFiles() {
+            filesData.sort((a, b) => {
+                return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            renderUI();
+        }
+
+        // 移除單一檔案
+        function removeFile(id) {
+            filesData = filesData.filter(f => f.id !== id);
+            renderUI();
+        }
+
+        // 清空所有檔案
+        function clearFiles() {
+            filesData = [];
+            document.getElementById('fileInput').value = ''; // 重置 input
+            renderUI();
+        }
+
+        // 渲染畫面 (同時更新 UI 列表和列印區)
+        function renderUI() {
+            const listContainer = document.getElementById('file-list');
+            const actionBar = document.getElementById('action-bar');
+            const emptyMsg = document.getElementById('empty-msg');
+            const fileCount = document.getElementById('file-count');
+            const printArea = document.getElementById('print-area');
+
+            // 更新 UI 狀態
+            if (filesData.length > 0) {
+                actionBar.classList.remove('hidden');
+                actionBar.classList.add('flex');
+                if(emptyMsg) emptyMsg.style.display = 'none';
+            } else {
+                actionBar.classList.add('hidden');
+                actionBar.classList.remove('flex');
+                if(emptyMsg) emptyMsg.style.display = 'block';
+            }
+
+            fileCount.textContent = filesData.length;
+
+            // 1. 渲染 UI 列表
+            listContainer.innerHTML = '';
+            if (filesData.length === 0) {
+                listContainer.appendChild(emptyMsg);
+            }
+
+            filesData.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:border-slate-300 transition-colors';
+                item.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 overflow-hidden">
+                        <span class="text-slate-400 font-mono text-sm w-6 text-center">${index + 1}.</span>
+                        <div class="min-w-0">
+                            <h4 class="font-medium text-slate-800 truncate text-sm">${file.name}</h4>
+                            <p class="text-xs text-slate-500">${file.size}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeFile('${file.id}')" class="text-slate-300 hover:text-red-500 p-2 transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                listContainer.appendChild(item);
+            });
+
+            // 重新初始化動態加入的 icon
+            lucide.createIcons();
+
+            // 2. 渲染列印區域 (這才是轉 PDF 的重點)
+            printArea.innerHTML = '';
+            filesData.forEach(file => {
+                const section = document.createElement('div');
+                section.className = 'file-section';
+                section.innerHTML = `
+                    <div class="file-title">${file.name}</div>
+                    <div>${escapeHtml(file.content)}</div>
+                `;
+                printArea.appendChild(section);
+            });
+        }
+
+        // 簡單的 HTML 跳脫防止 XSS (雖然是本地使用，安全習慣還是要有)
+        function escapeHtml(text) {
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
 
