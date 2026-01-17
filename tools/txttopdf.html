@@ -1,0 +1,398 @@
+import React, { useState, useEffect } from 'react';
+import { Upload, Download, Trash2, Loader2, FileStack, AlertCircle, ArrowDownAZ } from 'lucide-react';
+
+const App = () => {
+  const [files, setFiles] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [fontLoaded, setFontLoaded] = useState(false);
+  const [fontLoadingError, setFontLoadingError] = useState(false);
+  const [jspdfLoaded, setJspdfLoaded] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // 初始化：載入 jsPDF 並下載中文字型
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.async = true;
+    script.onload = () => {
+      setJspdfLoaded(true);
+      loadChineseFont();
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // 載入 Noto Sans TC 字型 (改用 TTF 格式以確保 jsPDF 相容性)
+  const loadChineseFont = async () => {
+    if (window.chineseFontData) {
+      setFontLoaded(true);
+      return;
+    }
+
+    // 定義字型來源清單 (主要來源 + 備援來源)
+    const fontUrls = [
+      // 來源 1: jsDelivr GitHub Proxy (通常最穩定)
+      'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC-Regular.ttf',
+      // 來源 2: Google GitHub Raw (備用)
+      'https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC-Regular.ttf'
+    ];
+
+    for (const fontUrl of fontUrls) {
+      try {
+        setLoadingProgress(0); // 重置進度
+        const response = await fetch(fontUrl);
+        
+        if (!response.ok) {
+          console.warn(`字型來源 ${fontUrl} 回應錯誤: ${response.status}`);
+          continue; // 嘗試下一個來源
+        }
+        
+        // 處理下載進度
+        const contentLength = response.headers.get('content-length');
+        const total = parseInt(contentLength, 10);
+        let loaded = 0;
+
+        const reader = response.body.getReader();
+        const chunks = [];
+
+        while(true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          loaded += value.length;
+          // 有些伺服器可能不回傳 content-length，避免 NaN
+          if (total) {
+            setLoadingProgress(Math.round((loaded / total) * 100));
+          } else {
+             // 假進度，讓使用者知道還在跑
+             setLoadingProgress(prev => Math.min(prev + 10, 90));
+          }
+        }
+
+        // 合併 chunks
+        const blob = new Blob(chunks);
+        const buffer = await blob.arrayBuffer();
+
+        // 優化的 Buffer 轉 Base64 方法，避免記憶體溢出
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const len = bytes.byteLength;
+        // 分塊處理字串轉換以避免堆疊溢出
+        for (let i = 0; i < len; i += 1024) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 1024));
+        }
+          
+        window.chineseFontData = btoa(binary);
+        setFontLoaded(true);
+        setLoadingProgress(100);
+        setFontLoadingError(false);
+        return; // 成功載入，結束函式
+        
+      } catch (error) {
+        console.warn(`嘗試載入字型失敗 (${fontUrl}):`, error);
+        // 繼續迴圈嘗試下一個連結
+      }
+    }
+
+    // 如果迴圈跑完都沒成功
+    setFontLoadingError(true);
+  };
+
+  const handleFileUpload = (event) => {
+    const uploadedFiles = Array.from(event.target.files);
+    
+    const newFiles = uploadedFiles
+      .filter(file => file.type === 'text/plain')
+      .map(file => ({
+        id: Math.random().toString(36).substr(2, 9),
+        fileObject: file,
+        name: file.name,
+        size: (file.size / 1024).toFixed(2) + ' KB',
+        content: null
+      }));
+
+    newFiles.forEach(fileItem => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFiles(prev => prev.map(f => 
+          f.id === fileItem.id ? { ...f, content: e.target.result } : f
+        ));
+      };
+      reader.readAsText(fileItem.fileObject);
+    });
+
+    setFiles(prev => [...prev, ...newFiles]);
+  };
+
+  const sortFilesByName = () => {
+    setFiles(prev => {
+      return [...prev].sort((a, b) => {
+        return a.name.localeCompare(b.name, 'zh-Hant', { numeric: true });
+      });
+    });
+  };
+
+  const moveFile = (index, direction) => {
+    const newFiles = [...files];
+    if (direction === 'up' && index > 0) {
+      [newFiles[index], newFiles[index - 1]] = [newFiles[index - 1], newFiles[index]];
+    } else if (direction === 'down' && index < newFiles.length - 1) {
+      [newFiles[index], newFiles[index + 1]] = [newFiles[index + 1], newFiles[index]];
+    }
+    setFiles(newFiles);
+  };
+
+  const removeFile = (id) => {
+    setFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const generateMergedPDF = async () => {
+    if (!window.jspdf || !window.chineseFontData) {
+      alert("系統正在準備字型與核心，請稍候再試...");
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    // 給 UI 一點時間更新
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const fileName = "NotoSansTC-Regular.ttf";
+      
+      // 確保字型已加入 VFS
+      if (!doc.existsFileInVFS(fileName)) {
+        doc.addFileToVFS(fileName, window.chineseFontData);
+        doc.addFont(fileName, "NotoSansTC", "normal");
+      }
+      
+      doc.setFont("NotoSansTC");
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      const lineHeight = 7;
+      const maxLineWidth = pageWidth - (margin * 2);
+      let cursorY = margin;
+
+      // 遍歷檔案
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index];
+        
+        if (index > 0) {
+          doc.addPage();
+          cursorY = margin;
+        }
+
+        // 檔名標題
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        // 檢查標題空間
+        if (cursorY + 15 > pageHeight - margin) {
+          doc.addPage();
+          cursorY = margin;
+        }
+        
+        // 處理標題過長
+        const titleLines = doc.splitTextToSize(file.name, maxLineWidth);
+        titleLines.forEach(line => {
+             doc.text(line, margin, cursorY);
+             cursorY += 8;
+        });
+
+        // 分隔線
+        doc.setLineWidth(0.5);
+        doc.line(margin, cursorY - 2, pageWidth - margin, cursorY - 2);
+        cursorY += 5;
+
+        // 內文
+        doc.setFontSize(11);
+        doc.setTextColor(50, 50, 50);
+        
+        // 這裡會用到字型的 cmap，如果字型錯誤，splitTextToSize 會報錯
+        const content = file.content || "";
+        // 移除部分不可見控制字元，避免 PDF 錯誤
+        const safeContent = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        
+        const splitText = doc.splitTextToSize(safeContent, maxLineWidth);
+
+        splitText.forEach(line => {
+          if (cursorY + lineHeight > pageHeight - margin) {
+            doc.addPage();
+            cursorY = margin;
+          }
+          doc.text(line, margin, cursorY);
+          cursorY += lineHeight;
+        });
+      }
+
+      doc.save(`合併文件_${new Date().toISOString().slice(0,10)}.pdf`);
+      
+    } catch (err) {
+      console.error(err);
+      alert(`生成失敗: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-gray-800">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+          
+          <div className="bg-slate-800 p-6 text-white">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <FileStack className="w-8 h-8" />
+              純文字 PDF 合併工具
+            </h1>
+            <p className="mt-2 text-gray-300 text-sm">
+              支援繁體中文 • 自動排序 • 合併匯出 • 向量文字格式
+            </p>
+          </div>
+
+          <div className="p-6 space-y-6">
+            
+            {!fontLoaded && !fontLoadingError && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium">正在下載並處理中文字型 (約 6MB)... {loadingProgress > 0 && `${loadingProgress}%`}</p>
+                  <p className="text-xs text-blue-600 mt-1">首次使用需下載字型檔，以確保 PDF 中文顯示正常且可搜尋。</p>
+                </div>
+              </div>
+            )}
+
+            {fontLoadingError && (
+              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <span>字型載入失敗，請檢查網路連線後重新整理頁面。</span>
+              </div>
+            )}
+            
+            <div className="relative group">
+              <input
+                type="file"
+                multiple
+                accept=".txt"
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                disabled={isProcessing}
+              />
+              <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 
+                ${isProcessing ? 'bg-gray-100 border-gray-300' : 'border-slate-300 bg-slate-50 group-hover:bg-slate-100 group-hover:border-slate-400'}`}>
+                <Upload className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-700">點擊或拖曳上傳 .txt 檔案</h3>
+                <p className="text-slate-500 text-sm mt-1">上傳後將依列表順序合併為一個 PDF</p>
+              </div>
+            </div>
+
+            {files.length > 0 && (
+              <div className="flex flex-col md:flex-row justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200 gap-4">
+                <span className="font-medium text-gray-600 hidden md:inline">
+                  待合併：{files.length} 個
+                </span>
+                
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                  <button
+                    onClick={sortFilesByName}
+                    disabled={isProcessing}
+                    className="flex-shrink-0 px-4 py-2 text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                  >
+                    <ArrowDownAZ className="w-4 h-4" />
+                    依名稱排序
+                  </button>
+
+                  <button
+                    onClick={() => setFiles([])}
+                    disabled={isProcessing}
+                    className="flex-shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    清空
+                  </button>
+                  
+                  <button
+                    onClick={generateMergedPDF}
+                    disabled={isProcessing || !fontLoaded}
+                    className={`flex-shrink-0 px-6 py-2 rounded-lg shadow-sm text-white font-medium flex items-center gap-2 transition-all ml-auto md:ml-0
+                      ${isProcessing || !fontLoaded
+                        ? 'bg-slate-400 cursor-not-allowed' 
+                        : 'bg-slate-800 hover:bg-slate-900'}`}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        生成中
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        合併匯出
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {files.map((file, index) => (
+                <div key={file.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:border-slate-300 transition-colors">
+                  <div className="flex items-center gap-3 flex-1 overflow-hidden">
+                    <span className="text-gray-400 font-mono text-sm w-6 text-center">{index + 1}.</span>
+                    <div className="min-w-0">
+                      <h4 className="font-medium text-gray-800 truncate text-sm">{file.name}</h4>
+                      <p className="text-xs text-gray-500">{file.size}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-0.5 mr-2">
+                      <button 
+                        onClick={() => moveFile(index, 'up')}
+                        disabled={index === 0}
+                        className="text-gray-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                      >
+                        ▲
+                      </button>
+                      <button 
+                         onClick={() => moveFile(index, 'down')}
+                         disabled={index === files.length - 1}
+                         className="text-gray-300 hover:text-slate-600 disabled:opacity-30 disabled:hover:text-gray-300"
+                      >
+                        ▼
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => removeFile(file.id)}
+                      className="text-gray-300 hover:text-red-500 transition-colors p-2 rounded hover:bg-gray-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              {files.length === 0 && (
+                <div className="text-center py-8 text-gray-400 border border-dashed border-gray-200 rounded-lg">
+                  <p>尚未加入檔案</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
